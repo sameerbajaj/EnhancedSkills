@@ -1,0 +1,109 @@
+import SwiftUI
+
+struct SkillCardView: View {
+    let record: SkillRecord
+    let isSelected: Bool
+    var index: Int = 0
+
+    @State private var appeared = false
+    @State private var isHovered = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                    Text(record.displayName)
+                        .font(.system(size: 14, weight: .semibold))
+                        .foregroundStyle(isSelected ? DS.Color.accent : DS.Color.text)
+                        .lineLimit(1)
+
+                    if let desc = record.description, !desc.isEmpty {
+                        Text(desc)
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Color.textSecondary)
+                            .lineLimit(2)
+                    }
+                }
+                Spacer()
+                StatusPill(status: record.status)
+            }
+
+            HStack(spacing: DS.Spacing.sm) {
+                if record.codexSkill != nil {
+                    ProviderBadge(provider: .codex)
+                }
+                if record.claudeSkill != nil {
+                    ProviderBadge(provider: .claude)
+                }
+                Spacer()
+                if let date = record.lastModified {
+                    Text(date, style: .relative)
+                        .font(.system(size: 10))
+                        .foregroundStyle(DS.Color.textTertiary)
+                }
+            }
+        }
+        .padding(DS.Spacing.lg)
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .fill(isSelected ? DS.Color.accentLight : (isHovered ? DS.Color.surface.opacity(0.8) : DS.Color.surface))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: DS.Radius.md)
+                .stroke(isSelected ? DS.Color.accent.opacity(0.3) : DS.Color.borderLight, lineWidth: 1)
+        )
+        .shadow(color: isHovered ? .black.opacity(0.08) : .black.opacity(0.04), radius: isHovered ? 12 : 6, x: 0, y: isHovered ? 4 : 2)
+        .scaleEffect(isHovered && !isSelected ? 1.005 : 1.0)
+        .opacity(appeared ? 1 : 0)
+        .offset(y: appeared ? 0 : 10)
+        .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(Double(index) * 0.04), value: appeared)
+        .animation(.easeInOut(duration: 0.15), value: isHovered)
+        .onAppear { appeared = true }
+        .onHover { isHovered = $0 }
+    }
+}
+
+struct StatusPill: View {
+    let status: SkillStatus
+
+    var fg: Color {
+        switch status {
+        case .synced: return DS.Color.synced
+        case .codexOnly: return DS.Color.codexOnly
+        case .claudeOnly: return DS.Color.claudeOnly
+        case .conflict, .invalid: return DS.Color.invalid
+        }
+    }
+    var bg: Color {
+        switch status {
+        case .synced: return DS.Color.syncedBg
+        case .codexOnly: return DS.Color.codexOnlyBg
+        case .claudeOnly: return DS.Color.claudeOnlyBg
+        case .conflict, .invalid: return DS.Color.invalidBg
+        }
+    }
+
+    var body: some View {
+        Text(status.displayName)
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundStyle(fg)
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, 3)
+            .background(bg)
+            .clipShape(Capsule())
+    }
+}
+
+struct ProviderBadge: View {
+    let provider: Provider
+
+    var body: some View {
+        Text(provider.displayName)
+            .font(.system(size: 10, weight: .medium))
+            .foregroundStyle(provider.badgeColor)
+            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.vertical, 2)
+            .background(provider.badgeBgColor)
+            .clipShape(Capsule())
+    }
+}
