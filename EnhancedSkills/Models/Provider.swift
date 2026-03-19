@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
@@ -47,6 +48,56 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
         case .openclaw: return DS.Color.openclawOnlyBg
         case .gemini: return DS.Color.geminiOnlyBg
         case .antigravity: return DS.Color.antigravityOnlyBg
+        }
+    }
+
+    var spec: ProviderSpec {
+        switch self {
+        case .claude:
+            return ProviderSpec(
+                specURL: URL(string: "https://docs.anthropic.com/en/docs/claude-code/skills"),
+                bestPracticesURL: nil,
+                skillFileName: "SKILL.md",
+                requiredFrontmatterFields: ["name", "description"],
+                optionalFrontmatterFields: ["allowed-tools", "model", "context", "argument-hint", "disable-model-invocation"],
+                specSummary: "Claude Code skills use Markdown files with YAML frontmatter. Skills define reusable prompts and tool permissions for Claude Code."
+            )
+        case .codex:
+            return ProviderSpec(
+                specURL: URL(string: "https://developers.openai.com/codex/skills"),
+                bestPracticesURL: nil,
+                skillFileName: "SKILL.md",
+                requiredFrontmatterFields: ["name", "description"],
+                optionalFrontmatterFields: ["version", "license"],
+                specSummary: "Codex skills are Markdown files with YAML frontmatter defining reusable coding instructions and workflows."
+            )
+        case .openclaw:
+            return ProviderSpec(
+                specURL: URL(string: "https://github.com/openclaw/clawhub/blob/main/docs/skill-format.md"),
+                bestPracticesURL: nil,
+                skillFileName: "SKILL.md",
+                requiredFrontmatterFields: ["name", "description"],
+                optionalFrontmatterFields: ["version", "requires.env", "requires.bins"],
+                specSummary: "OpenClaw skills follow the ClawHub skill format with support for environment and binary requirements."
+            )
+        case .gemini:
+            return ProviderSpec(
+                specURL: URL(string: "https://geminicli.com/docs/cli/skills/"),
+                bestPracticesURL: nil,
+                skillFileName: "SKILL.md",
+                requiredFrontmatterFields: ["name", "description"],
+                optionalFrontmatterFields: [],
+                specSummary: "Gemini CLI skills use Markdown files with YAML frontmatter for defining reusable prompts."
+            )
+        case .antigravity:
+            return ProviderSpec(
+                specURL: URL(string: "https://antigravity.google/docs/skills"),
+                bestPracticesURL: nil,
+                skillFileName: "SKILL.md",
+                requiredFrontmatterFields: ["name", "description"],
+                optionalFrontmatterFields: [],
+                specSummary: "Antigravity skills use Markdown files with YAML frontmatter, compatible with the Gemini skill ecosystem."
+            )
         }
     }
 }

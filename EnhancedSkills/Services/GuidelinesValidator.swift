@@ -112,6 +112,45 @@ struct GuidelinesValidator {
             }
         }
 
+        // Dynamic spec-based field checks
+        if let fm = frontmatter {
+            let existingRuleFields: Set<String> = ["name", "description"]
+            let existingOptionalFields: Set<String> = ["allowed-tools", "version"]
+
+            let spec = provider.spec
+            for field in spec.requiredFrontmatterFields where !existingRuleFields.contains(field) {
+                let rule = GuidelineRule(
+                    id: "spec-required-\(field)",
+                    title: "\(field) field required",
+                    detail: "Provider spec requires '\(field)' in frontmatter",
+                    severity: .error,
+                    provider: provider,
+                    isAutoFixable: false
+                )
+                if !fm.allKeys.contains(field) {
+                    violations.append(GuidelineViolation(rule: rule, fixHint: "Add '\(field)' to the frontmatter"))
+                } else {
+                    passed.append(rule)
+                }
+            }
+
+            for field in spec.optionalFrontmatterFields where !existingOptionalFields.contains(field) {
+                let rule = GuidelineRule(
+                    id: "spec-optional-\(field)",
+                    title: "\(field) field recommended",
+                    detail: "Provider spec recommends '\(field)' in frontmatter",
+                    severity: .suggestion,
+                    provider: provider,
+                    isAutoFixable: false
+                )
+                if !fm.allKeys.contains(field) {
+                    violations.append(GuidelineViolation(rule: rule, fixHint: "Consider adding '\(field)' to the frontmatter"))
+                } else {
+                    passed.append(rule)
+                }
+            }
+        }
+
         violations.sort { $0.rule.severity < $1.rule.severity }
 
         return ValidationReport(provider: provider, violations: violations, passedRules: passed)

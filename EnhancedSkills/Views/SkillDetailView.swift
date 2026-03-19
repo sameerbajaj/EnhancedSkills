@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct SkillDetailView: View {
@@ -117,6 +118,11 @@ struct DetailContent: View {
 
                 Divider()
 
+                // AI Evaluation
+                AIEvaluationSection(record: record, state: state)
+
+                Divider()
+
                 // Paths with folder reveal buttons
                 VStack(alignment: .leading, spacing: DS.Spacing.md) {
                     Text("LOCATIONS")
@@ -166,6 +172,9 @@ struct DetailContent: View {
         }
         .background(DS.Color.canvas)
         .frame(minWidth: 280)
+        .onChange(of: record.id) { _, _ in
+            state.resetEvaluationState()
+        }
         .sheet(isPresented: $state.showTransferSheet) {
             if let plan = state.transferPlan {
                 TransferConfirmationSheet(plan: plan, state: state)
@@ -326,6 +335,17 @@ struct GuidelinesSection: View {
                     VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                         HStack {
                             ProviderBadge(provider: provider)
+                            if let specURL = provider.spec.specURL {
+                                Button {
+                                    NSWorkspace.shared.open(specURL)
+                                } label: {
+                                    Image(systemName: "info.circle")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(DS.Color.accent)
+                                }
+                                .buttonStyle(.plain)
+                                .help("View \(provider.displayName) skill specification")
+                            }
                             Spacer()
                             if report.autoFixableCount > 0 {
                                 Button {
@@ -463,5 +483,248 @@ struct TransferButton: View {
         .scaleEffect(isHovered ? 1.01 : 1.0)
         .animation(.easeInOut(duration: 0.12), value: isHovered)
         .onHover { isHovered = $0 }
+    }
+}
+
+// MARK: - AI Evaluation Section
+
+struct AIEvaluationSection: View {
+    let record: SkillRecord
+    @Bindable var state: AppState
+
+    private var evaluationSkill: DiscoveredSkill? {
+        record.preferredPreviewSource
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            HStack {
+                Text("AI EVALUATION")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Color.textTertiary)
+                Spacer()
+                if let skill = evaluationSkill {
+                    Button {
+                        Task { await state.evaluateSkill(skill) }
+                    } label: {
+                        Label(
+                            state.evaluationState == .evaluating ? "Evaluating…" : "Evaluate with AI",
+                            systemImage: "sparkles"
+                        )
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(DS.Color.accent)
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(state.evaluationState == .evaluating)
+                }
+            }
+
+            switch state.evaluationState {
+            case .idle:
+                Text("Click \"Evaluate with AI\" to analyze this skill against best practices.")
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Color.textTertiary)
+            case .evaluating:
+                HStack(spacing: DS.Spacing.sm) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Analyzing skill against best practices…")
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Color.textSecondary)
+                }
+                .padding(DS.Spacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(DS.Color.canvas)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
+            case .completed(let evaluation):
+                AIEvaluationResultView(evaluation: evaluation)
+            case .failed(let message):
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.invalid)
+                    .padding(DS.Spacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(DS.Color.invalidBg)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+            }
+        }
+    }
+}
+
+// MARK: - AI Evaluation Result View
+
+struct AIEvaluationResultView: View {
+    let evaluation: AIEvaluation
+
+    private var scoreColor: Color {
+        evaluation.overallScore >= 7 ? DS.Color.synced :
+        evaluation.overallScore >= 4 ? DS.Color.warning :
+        DS.Color.invalid
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+
+            // Score + category row
+            HStack(spacing: DS.Spacing.md) {
+                // Score circle
+                ZStack {
+                    Circle()
+                        .stroke(DS.Color.borderLight, lineWidth: 3)
+                        .frame(width: 48, height: 48)
+                    Circle()
+                        .trim(from: 0, to: Double(evaluation.overallScore) / 10.0)
+                        .stroke(scoreColor, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+                        .frame(width: 48, height: 48)
+                        .rotationEffect(.degrees(-90))
+                    Text("\(evaluation.overallScore)")
+                        .font(.system(size: 16, weight: .bold))
+                        .foregroundStyle(scoreColor)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(evaluation.summary)
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Color.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                    MetaChip(label: evaluation.category, icon: "sparkles")
+                }
+            }
+
+            // Sub-scores
+            HStack(spacing: DS.Spacing.md) {
+                ScoreLabel(label: "Structure", score: evaluation.structureScore)
+                ScoreLabel(label: "Description", score: evaluation.descriptionScore)
+                ScoreLabel(label: "Content", score: evaluation.contentQualityScore)
+            }
+
+            // Issues
+            if !evaluation.issues.isEmpty {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                    ForEach(evaluation.issues) { issue in
+                        AIIssueRow(issue: issue)
+                    }
+                }
+            }
+
+            // Suggestions
+            if !evaluation.suggestions.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Suggestions")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(DS.Color.textSecondary)
+                    ForEach(evaluation.suggestions, id: \.self) { suggestion in
+                        HStack(alignment: .top, spacing: DS.Spacing.xs) {
+                            Text("•")
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.textTertiary)
+                            Text(suggestion)
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.textSecondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                }
+            }
+
+            // Improved description
+            if let improved = evaluation.improvedDescription {
+                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                    HStack {
+                        Text("Suggested Description")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(DS.Color.textSecondary)
+                        Spacer()
+                        Button {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(improved, forType: .string)
+                        } label: {
+                            Label("Copy", systemImage: "doc.on.doc")
+                                .font(.system(size: 10))
+                                .foregroundStyle(DS.Color.accent)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    Text(improved)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(DS.Color.text)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .padding(DS.Spacing.sm)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(DS.Color.canvas)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                        .overlay(RoundedRectangle(cornerRadius: DS.Radius.sm).stroke(DS.Color.borderLight, lineWidth: 1))
+                }
+            }
+        }
+        .padding(DS.Spacing.md)
+        .background(DS.Color.surface)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
+    }
+}
+
+struct ScoreLabel: View {
+    let label: String
+    let score: Int
+
+    private var color: Color {
+        score >= 7 ? DS.Color.synced :
+        score >= 4 ? DS.Color.warning :
+        DS.Color.invalid
+    }
+
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("\(score)/10")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(color)
+            Text(label)
+                .font(.system(size: 10))
+                .foregroundStyle(DS.Color.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, DS.Spacing.xs)
+        .background(DS.Color.canvas)
+        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+    }
+}
+
+struct AIIssueRow: View {
+    let issue: AIEvaluationIssue
+
+    private var iconName: String {
+        switch issue.severity {
+        case "error": return "xmark.circle.fill"
+        case "warning": return "exclamationmark.triangle.fill"
+        default: return "info.circle.fill"
+        }
+    }
+
+    private var iconColor: Color {
+        switch issue.severity {
+        case "error": return DS.Color.invalid
+        case "warning": return DS.Color.warning
+        default: return DS.Color.suggestion
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: DS.Spacing.sm) {
+                Image(systemName: iconName)
+                    .font(.system(size: 11))
+                    .foregroundStyle(iconColor)
+                Text(issue.field)
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(DS.Color.textSecondary)
+            }
+            Text(issue.message)
+                .font(.system(size: 11))
+                .foregroundStyle(DS.Color.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .padding(.leading, DS.Spacing.xl)
+        }
     }
 }

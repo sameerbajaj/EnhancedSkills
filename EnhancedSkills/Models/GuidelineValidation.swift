@@ -52,4 +52,9 @@ struct ValidationReport: Equatable {
     var suggestionCount: Int { violations.filter { $0.rule.severity == .suggestion }.count }
     var totalCount: Int { violations.count }
     var autoFixableCount: Int { violations.filter { $0.isAutoFixable }.count }
+
+    var summary: String {
+        violations.map { "[\($0.rule.severity.label)] \($0.rule.title): \($0.fixHint ?? "")" }
+            .joined(separator: "\n")
+    }
 }

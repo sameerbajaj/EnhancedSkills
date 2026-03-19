@@ -5,6 +5,7 @@ import AppKit
 
 enum SettingsTab: String, CaseIterable, Identifiable {
     case providers = "Providers"
+    case ai = "AI"
     case update = "Update"
 
     var id: String { rawValue }
@@ -12,6 +13,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
     var icon: String {
         switch self {
         case .providers: "square.grid.2x2"
+        case .ai: "sparkles"
         case .update: "arrow.triangle.2.circlepath"
         }
     }
@@ -65,6 +67,8 @@ struct SettingsView: View {
                 switch selectedTab {
                 case .providers:
                     ProvidersSettingsContent(settings: settings)
+                case .ai:
+                    AISettingsContent(settings: settings)
                 case .update:
                     UpdateSettingsContent(settings: settings, updaterController: updaterController)
                 }
@@ -73,6 +77,69 @@ struct SettingsView: View {
             .background(DS.Color.surface)
         }
         .frame(minWidth: 600, minHeight: 420)
+    }
+}
+
+// MARK: - AI Settings Content
+
+struct AISettingsContent: View {
+    @Bindable var settings: SettingsStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("AI")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(DS.Color.text)
+                Text("Choose how AI skill evaluation runs in this app.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.textSecondary)
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.xl)
+            .padding(.bottom, DS.Spacing.lg)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                Picker("Evaluation Backend", selection: $settings.aiBackend) {
+                    ForEach(AIBackend.allCases, id: \.self) { backend in
+                        Text(backend.displayName).tag(backend)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    ForEach(AIBackend.allCases, id: \.self) { backend in
+                        let path = SkillEvaluator.cliPath(for: backend)
+                        HStack(spacing: DS.Spacing.sm) {
+                            Circle()
+                                .fill(path == nil ? DS.Color.invalid : DS.Color.synced)
+                                .frame(width: 8, height: 8)
+                            Text("\(backend.displayName): \(path == nil ? "Not found" : "Available")")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(DS.Color.text)
+                            Spacer()
+                        }
+                        if let path {
+                            Text(path)
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(DS.Color.textTertiary)
+                        }
+                    }
+                }
+                .padding(DS.Spacing.md)
+                .background(DS.Color.canvas)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.borderLight, lineWidth: 1)
+                )
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.lg)
+            .padding(.bottom, DS.Spacing.xl)
+        }
     }
 }
 
@@ -280,6 +347,14 @@ struct ProviderSettingsRow: View {
                             localPath = settings.path(for: provider)
                         }
                         .controlSize(.small)
+                    }
+                }
+
+                if let specURL = provider.spec.specURL {
+                    Link(destination: specURL) {
+                        Label("View Skill Specification", systemImage: "doc.text")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.accent)
                     }
                 }
             }

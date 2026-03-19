@@ -7,6 +7,11 @@ class SettingsStore {
     // Provider enabled state
     private var enabled: [Provider: Bool] = [:]
 
+    // AI Evaluation settings
+    var aiBackend: AIBackend {
+        didSet { UserDefaults.standard.set(aiBackend.rawValue, forKey: "settings.aiBackend") }
+    }
+
     // Update settings
     var autoCheckForUpdates: Bool {
         didSet { UserDefaults.standard.set(autoCheckForUpdates, forKey: "settings.autoCheckForUpdates") }
@@ -24,6 +29,14 @@ class SettingsStore {
 
     init() {
         let defaults = UserDefaults.standard
+
+        // AI Evaluation settings
+        if let backendRaw = defaults.string(forKey: "settings.aiBackend"),
+           let backend = AIBackend(rawValue: backendRaw) {
+            aiBackend = backend
+        } else {
+            aiBackend = .claudeCLI
+        }
 
         // Update settings
         if defaults.object(forKey: "settings.autoCheckForUpdates") != nil {

@@ -33,6 +33,9 @@ class AppState {
     var syncError: String?
     var recentlyFixedRuleIDs: Set<String> = []
 
+    var evaluationState: EvaluationState = .idle
+    var evaluationCache: [String: AIEvaluation] = [:]
+
     var showSettings = false
 
     var skillCounts: [Provider: Int] = [:]
@@ -206,5 +209,26 @@ class AppState {
 
     func revealInFinder(_ skill: DiscoveredSkill) {
         NSWorkspace.shared.selectFile(skill.skillPath.path, inFileViewerRootedAtPath: skill.rootPath.path)
+    }
+
+    func evaluateSkill(_ skill: DiscoveredSkill) async {
+        evaluationState = .evaluating
+        do {
+            if let hash = skill.contentHash, let cached = evaluationCache[hash] {
+                evaluationState = .completed(cached)
+                return
+            }
+            let result = try await SkillEvaluator.evaluate(skill: skill, backend: settings.aiBackend)
+            if let hash = skill.contentHash {
+                evaluationCache[hash] = result
+            }
+            evaluationState = .completed(result)
+        } catch {
+            evaluationState = .failed(error.localizedDescription)
+        }
+    }
+
+    func resetEvaluationState() {
+        evaluationState = .idle
     }
 }
