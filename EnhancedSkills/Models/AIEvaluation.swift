@@ -30,6 +30,30 @@ enum EvaluationState: Equatable {
     case failed(String)
 }
 
+// MARK: - Skill Improvement Models
+
+struct SkillFileChange: Codable, Equatable, Identifiable {
+    var id: String { relativePath }
+    let relativePath: String    // "SKILL.md", "references/book-processing.md"
+    let content: String         // full new file content
+    let isNew: Bool
+}
+
+struct SkillImprovementPlan: Equatable {
+    let skill: DiscoveredSkill
+    let fileChanges: [SkillFileChange]
+    let originalContents: [String: String]  // relativePath -> original content
+}
+
+enum ImprovementState: Equatable {
+    case idle
+    case generating
+    case previewing(SkillImprovementPlan)
+    case applying
+    case applied
+    case failed(String)
+}
+
 // MARK: - AI Backend
 
 enum AIBackend: String, CaseIterable {

@@ -58,23 +58,30 @@ jobs:
           chmod +x scripts/create_dmg.sh
           scripts/create_dmg.sh "${{ steps.vars.outputs.version_suffix }}" "${{ steps.vars.outputs.marketing_version }}"
 
-      - name: Recreate rolling latest pre-release
+      - name: Recreate rolling latest release
         if: github.event_name != 'release'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release delete latest --cleanup-tag --yes 2>/dev/null || true
           sleep 2
-          NOTES=$(cat <<EOF
-          Auto-updated DMG from the latest push to main.
 
-          Version: ${{ steps.vars.outputs.display_version }}
-          Commit: ${{ github.sha }}
+          CHANGELOG=$(git log --pretty=format:"- %s (%h)" -10)
+
+          NOTES=$(cat <<EOF
+          Latest rolling build from main.
+
+          **Version:** ${{ steps.vars.outputs.display_version }}
+          **Commit:** \`${GITHUB_SHA::7}\`
+
+          ### Recent changes
+          ${CHANGELOG}
           EOF
           )
+
           gh release create latest \
             --title "Latest build (${{ steps.vars.outputs.display_version }})" \
-            --prerelease \
+            --latest \
             --notes "$NOTES"
 
       - name: Upload DMG to release

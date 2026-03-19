@@ -538,7 +538,7 @@ struct AIEvaluationSection: View {
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
             case .completed(let evaluation):
-                AIEvaluationResultView(evaluation: evaluation)
+                AIEvaluationResultView(evaluation: evaluation, state: state, record: record)
             case .failed(let message):
                 Text(message)
                     .font(.system(size: 12))
@@ -556,11 +556,33 @@ struct AIEvaluationSection: View {
 
 struct AIEvaluationResultView: View {
     let evaluation: AIEvaluation
+    @Bindable var state: AppState
+    let record: SkillRecord
 
     private var scoreColor: Color {
         evaluation.overallScore >= 7 ? DS.Color.synced :
         evaluation.overallScore >= 4 ? DS.Color.warning :
         DS.Color.invalid
+    }
+
+    private var allSelected: Bool {
+        state.selectedSuggestionIndices.count == evaluation.suggestions.count
+    }
+
+    private var evaluationSkill: DiscoveredSkill? {
+        record.preferredPreviewSource
+    }
+
+    private var showPreviewSheet: Binding<Bool> {
+        Binding(
+            get: {
+                if case .previewing = state.improvementState { return true }
+                return false
+            },
+            set: { newValue in
+                if !newValue { state.cancelImprovements() }
+            }
+        )
     }
 
     var body: some View {
@@ -608,23 +630,94 @@ struct AIEvaluationResultView: View {
                 }
             }
 
-            // Suggestions
+            // Suggestions with checkboxes
             if !evaluation.suggestions.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Suggestions")
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(DS.Color.textSecondary)
-                    ForEach(evaluation.suggestions, id: \.self) { suggestion in
+                    HStack {
+                        Text("Suggestions")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(DS.Color.textSecondary)
+                        Spacer()
+                        Button {
+                            if allSelected {
+                                state.selectedSuggestionIndices.removeAll()
+                            } else {
+                                state.selectedSuggestionIndices = Set(0..<evaluation.suggestions.count)
+                            }
+                        } label: {
+                            Text(allSelected ? "Deselect All" : "Select All")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(DS.Color.accent)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                    ForEach(Array(evaluation.suggestions.enumerated()), id: \.offset) { index, suggestion in
                         HStack(alignment: .top, spacing: DS.Spacing.xs) {
-                            Text("•")
-                                .font(.system(size: 11))
-                                .foregroundStyle(DS.Color.textTertiary)
+                            Image(systemName: state.selectedSuggestionIndices.contains(index) ? "checkmark.square.fill" : "square")
+                                .font(.system(size: 12))
+                                .foregroundStyle(state.selectedSuggestionIndices.contains(index) ? DS.Color.accent : DS.Color.textTertiary)
+                                .onTapGesture {
+                                    if state.selectedSuggestionIndices.contains(index) {
+                                        state.selectedSuggestionIndices.remove(index)
+                                    } else {
+                                        state.selectedSuggestionIndices.insert(index)
+                                    }
+                                }
                             Text(suggestion)
                                 .font(.system(size: 11))
                                 .foregroundStyle(DS.Color.textSecondary)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
                     }
+
+                    // Improve with AI button
+                    HStack(spacing: DS.Spacing.sm) {
+                        Button {
+                            guard let skill = evaluationSkill else { return }
+                            Task { await state.generateImprovements(for: skill, evaluation: evaluation) }
+                        } label: {
+                            HStack(spacing: DS.Spacing.xs) {
+                                if state.improvementState == .generating {
+                                    ProgressView()
+                                        .controlSize(.mini)
+                                } else {
+                                    Image(systemName: "wand.and.stars")
+                                        .font(.system(size: 12))
+                                }
+                                Text(state.improvementState == .generating ? "Generating…" : "Improve with AI")
+                                    .font(.system(size: 12, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, DS.Spacing.lg)
+                            .padding(.vertical, DS.Spacing.sm)
+                            .background(
+                                state.selectedSuggestionIndices.isEmpty || state.improvementState == .generating
+                                    ? DS.Color.accent.opacity(0.4)
+                                    : DS.Color.accent
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                        }
+                        .buttonStyle(.plain)
+                        .disabled(state.selectedSuggestionIndices.isEmpty || state.improvementState == .generating)
+
+                        if case .applied = state.improvementState {
+                            HStack(spacing: DS.Spacing.xs) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(DS.Color.synced)
+                                Text("Changes applied")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(DS.Color.synced)
+                            }
+                        }
+
+                        if case .failed(let msg) = state.improvementState {
+                            Text(msg)
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.invalid)
+                                .lineLimit(2)
+                        }
+                    }
+                    .padding(.top, DS.Spacing.sm)
                 }
             }
 
@@ -662,6 +755,11 @@ struct AIEvaluationResultView: View {
         .background(DS.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
+        .sheet(isPresented: showPreviewSheet) {
+            if case .previewing(let plan) = state.improvementState {
+                ImprovementPreviewSheet(plan: plan, state: state)
+            }
+        }
     }
 }
 

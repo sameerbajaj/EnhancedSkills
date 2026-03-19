@@ -36,6 +36,9 @@ class AppState {
     var evaluationState: EvaluationState = .idle
     var evaluationCache: [String: AIEvaluation] = [:]
 
+    var improvementState: ImprovementState = .idle
+    var selectedSuggestionIndices: Set<Int> = []
+
     var showSettings = false
     var showImportSheet = false
 
@@ -231,5 +234,55 @@ class AppState {
 
     func resetEvaluationState() {
         evaluationState = .idle
+        improvementState = .idle
+        selectedSuggestionIndices = []
+    }
+
+    func generateImprovements(for skill: DiscoveredSkill, evaluation: AIEvaluation) async {
+        let selected = selectedSuggestionIndices.sorted().compactMap { idx -> String? in
+            guard idx < evaluation.suggestions.count else { return nil }
+            return evaluation.suggestions[idx]
+        }
+        guard !selected.isEmpty else { return }
+
+        await MainActor.run { improvementState = .generating }
+
+        do {
+            let fileChanges = try await SkillImprover.generateImprovements(
+                skill: skill,
+                evaluation: evaluation,
+                selectedSuggestions: selected,
+                backend: settings.aiBackend,
+                apiKey: settings.apiKey(for: settings.aiBackend)
+            )
+            let plan = SkillImprover.buildPlan(skill: skill, fileChanges: fileChanges)
+            await MainActor.run { improvementState = .previewing(plan) }
+        } catch {
+            await MainActor.run { improvementState = .failed(error.localizedDescription) }
+        }
+    }
+
+    func applyImprovements() async {
+        guard case .previewing(let plan) = improvementState else { return }
+        await MainActor.run { improvementState = .applying }
+
+        do {
+            try SkillImprover.applyChanges(plan: plan)
+            // Invalidate evaluation cache for this skill
+            if let hash = plan.skill.contentHash {
+                evaluationCache.removeValue(forKey: hash)
+            }
+            await MainActor.run {
+                improvementState = .applied
+                evaluationState = .idle
+            }
+            await refresh()
+        } catch {
+            await MainActor.run { improvementState = .failed(error.localizedDescription) }
+        }
+    }
+
+    func cancelImprovements() {
+        improvementState = .idle
     }
 }

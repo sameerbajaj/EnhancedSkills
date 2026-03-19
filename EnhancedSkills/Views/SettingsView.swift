@@ -216,7 +216,7 @@ private struct AIBackendRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             if backend.isCLI {
-                let path = SkillEvaluator.cliPath(for: backend)
+                let path = AIBackendRunner.cliPath(for: backend)
                 HStack(spacing: DS.Spacing.sm) {
                     Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
                         .font(.system(size: 12))
