@@ -38,6 +38,7 @@ class AppState {
 
     var improvementState: ImprovementState = .idle
     var selectedSuggestionIndices: Set<Int> = []
+    var selectedSuggestionsCache: [String: Set<Int>] = [:]  // slug -> selected indices
 
     var showSettings = false
     var showImportSheet = false
@@ -232,10 +233,45 @@ class AppState {
         }
     }
 
+    /// Hard reset — used when the user explicitly wants to clear everything.
     func resetEvaluationState() {
+        // Save current selections before clearing
+        saveCurrentSuggestionSelections()
         evaluationState = .idle
         improvementState = .idle
         selectedSuggestionIndices = []
+    }
+
+    /// Called on skill switch — preserves cached evaluations and selections.
+    func switchEvaluationContext(to record: SkillRecord) {
+        // Save selections for the previous skill
+        saveCurrentSuggestionSelections()
+
+        // Reset transient improvement state (generating/applying don't survive switching)
+        if case .previewing = improvementState {
+            // keep it — user might switch back
+        } else {
+            improvementState = .idle
+        }
+        improvementState = .idle
+
+        // Restore cached evaluation for the new skill
+        if let skill = record.preferredPreviewSource,
+           let hash = skill.contentHash,
+           let cached = evaluationCache[hash] {
+            evaluationState = .completed(cached)
+            // Restore saved suggestion selections
+            selectedSuggestionIndices = selectedSuggestionsCache[record.slug] ?? []
+        } else {
+            evaluationState = .idle
+            selectedSuggestionIndices = []
+        }
+    }
+
+    private func saveCurrentSuggestionSelections() {
+        guard let slug = selectedRecord?.slug,
+              !selectedSuggestionIndices.isEmpty else { return }
+        selectedSuggestionsCache[slug] = selectedSuggestionIndices
     }
 
     func generateImprovements(for skill: DiscoveredSkill, evaluation: AIEvaluation) async {

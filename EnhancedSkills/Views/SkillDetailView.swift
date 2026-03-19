@@ -173,7 +173,7 @@ struct DetailContent: View {
         .background(DS.Color.canvas)
         .frame(minWidth: 280)
         .onChange(of: record.id) { _, _ in
-            state.resetEvaluationState()
+            state.switchEvaluationContext(to: record)
         }
         .sheet(isPresented: $state.showTransferSheet) {
             if let plan = state.transferPlan {
