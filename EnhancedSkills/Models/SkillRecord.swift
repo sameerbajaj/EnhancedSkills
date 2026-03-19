@@ -56,7 +56,9 @@ struct SkillRecord: Identifiable, Equatable {
     }
 
     var totalViolationCount: Int {
-        skills.values.reduce(0) { $0 + ($1.validationReport?.totalCount ?? 0) }
+        skills.values.reduce(0) {
+            $0 + ($1.validationReport?.errorCount ?? 0) + ($1.validationReport?.warningCount ?? 0)
+        }
     }
 
     var hasGuidelineIssues: Bool { totalViolationCount > 0 }

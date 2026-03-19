@@ -408,13 +408,6 @@ struct GuidelineRow: View {
     var isJustFixed: Bool = false
     var onFix: (() -> Void)?
 
-    /// Non-fixable suggestions are purely informational — no icon needed.
-    private var showIcon: Bool {
-        if passed || isJustFixed { return true }
-        if severity == .suggestion && !isAutoFixable { return false }
-        return true
-    }
-
     private var iconName: String {
         if isJustFixed { return "checkmark.circle.fill" }
         return passed ? "checkmark.circle.fill" : severity.iconName
@@ -433,12 +426,10 @@ struct GuidelineRow: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             HStack(spacing: DS.Spacing.sm) {
-                if showIcon {
-                    Image(systemName: iconName)
-                        .font(.system(size: 12))
-                        .foregroundStyle(iconColor)
-                        .contentTransition(.symbolEffect(.replace))
-                }
+                Image(systemName: iconName)
+                    .font(.system(size: 12))
+                    .foregroundStyle(iconColor)
+                    .contentTransition(.symbolEffect(.replace))
                 Text(isJustFixed ? "\(title) — Fixed" : title)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(isJustFixed ? DS.Color.synced : DS.Color.text)

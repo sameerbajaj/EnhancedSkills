@@ -76,7 +76,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(DS.Color.surface)
         }
-        .frame(minWidth: 750, minHeight: 580)
+        .frame(minWidth: 820, minHeight: 640)
     }
 }
 
@@ -140,11 +140,11 @@ struct AISettingsContent: View {
                 )
 
                 // Test connection
-                HStack(spacing: DS.Spacing.sm) {
+                HStack(spacing: DS.Spacing.md) {
                     Button {
                         testConnection()
                     } label: {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             if isTesting {
                                 ProgressView()
                                     .controlSize(.small)
@@ -152,16 +152,26 @@ struct AISettingsContent: View {
                             Text("Test Connection")
                                 .font(.system(size: 13, weight: .medium))
                         }
+                        .foregroundStyle(DS.Color.accent)
+                        .padding(.horizontal, DS.Spacing.md)
+                        .padding(.vertical, DS.Spacing.sm)
+                        .background(DS.Color.accentLight)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                .stroke(DS.Color.accent.opacity(0.3), lineWidth: 1)
+                        )
                     }
+                    .buttonStyle(.plain)
                     .disabled(isTesting)
 
                     if let testResult {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 6) {
                             Image(systemName: testIsError ? "xmark.circle.fill" : "checkmark.circle.fill")
-                                .foregroundStyle(testIsError ? .red : .green)
+                                .foregroundStyle(testIsError ? DS.Color.invalid : DS.Color.synced)
                             Text(testResult)
-                                .font(.system(size: 12))
-                                .foregroundStyle(testIsError ? .red : DS.Color.text)
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(testIsError ? DS.Color.invalid : DS.Color.synced)
                                 .lineLimit(2)
                         }
                     }
@@ -253,8 +263,16 @@ private struct AIBackendRow: View {
                         .foregroundStyle(DS.Color.textSecondary)
                         .frame(width: 50, alignment: .trailing)
                     SecureField(apiKeyPlaceholder, text: apiKeyBinding)
-                        .textFieldStyle(.roundedBorder)
+                        .textFieldStyle(.plain)
                         .font(.system(size: 12, design: .monospaced))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 6)
+                        .background(DS.Color.surface)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                .stroke(DS.Color.border, lineWidth: 1)
+                        )
                 }
                 .padding(.leading, 24)
             }
@@ -404,8 +422,17 @@ struct UpdateSettingsContent: View {
                 } label: {
                     Text("Check for Updates Now")
                         .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(DS.Color.accent)
+                        .padding(.horizontal, DS.Spacing.md)
+                        .padding(.vertical, DS.Spacing.sm)
+                        .background(DS.Color.accentLight)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                .stroke(DS.Color.accent.opacity(0.3), lineWidth: 1)
+                        )
                 }
-                .controlSize(.regular)
+                .buttonStyle(.plain)
             }
             .padding(.horizontal, DS.Spacing.xl)
             .padding(.top, DS.Spacing.lg)
@@ -476,17 +503,41 @@ struct ProviderSettingsRow: View {
                         settings.setPath(newValue, for: provider)
                     }
 
-                    Button("Browse…") {
+                    Button {
                         browseForFolder()
+                    } label: {
+                        Text("Browse\u{2026}")
+                            .font(.system(size: 12, weight: .medium))
+                            .foregroundStyle(DS.Color.accent)
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 4)
+                            .background(DS.Color.accentLight)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                    .stroke(DS.Color.accent.opacity(0.3), lineWidth: 1)
+                            )
                     }
-                    .controlSize(.small)
+                    .buttonStyle(.plain)
 
                     if hasDefault {
-                        Button("Reset") {
+                        Button {
                             settings.resetToDefault(for: provider)
                             localPath = settings.path(for: provider)
+                        } label: {
+                            Text("Reset")
+                                .font(.system(size: 12, weight: .medium))
+                                .foregroundStyle(DS.Color.textSecondary)
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 4)
+                                .background(DS.Color.canvas)
+                                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                        .stroke(DS.Color.border, lineWidth: 1)
+                                )
                         }
-                        .controlSize(.small)
+                        .buttonStyle(.plain)
                     }
                 }
 
