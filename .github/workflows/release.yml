@@ -71,18 +71,16 @@ jobs:
           CHANGELOG=$(git log --pretty=format:"- %s (%h)" -10)
 
           NOTES=$(cat <<EOF
-          Latest rolling build from main.
-
-          **Version:** ${{ steps.vars.outputs.display_version }}
-          **Commit:** \`${GITHUB_SHA::7}\`
-
-          ### Recent changes
+          ### Highlights
           ${CHANGELOG}
+
+          ---
+          **Commit:** \`${GITHUB_SHA::7}\` · **Built from:** \`main\`
           EOF
           )
 
           gh release create latest \
-            --title "Latest build (${{ steps.vars.outputs.display_version }})" \
+            --title "$APP_NAME ${{ steps.vars.outputs.marketing_version }}" \
             --latest \
             --notes "$NOTES"
 
