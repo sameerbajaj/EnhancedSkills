@@ -248,12 +248,14 @@ struct GuidelinesSection: View {
                         }
 
                         ForEach(report.violations) { violation in
+                            let justFixed = state.recentlyFixedRuleIDs.contains(violation.rule.id)
                             GuidelineRow(
                                 title: violation.rule.title,
                                 severity: violation.rule.severity,
                                 fixHint: violation.fixHint,
                                 passed: false,
                                 isAutoFixable: violation.isAutoFixable,
+                                isJustFixed: justFixed,
                                 onFix: violation.isAutoFixable ? {
                                     Task { await state.fixViolation(violation.rule.id, skill: skill) }
                                 } : nil
@@ -265,9 +267,7 @@ struct GuidelinesSection: View {
                                 title: rule.title,
                                 severity: rule.severity,
                                 fixHint: nil,
-                                passed: true,
-                                isAutoFixable: false,
-                                onFix: nil
+                                passed: true
                             )
                         }
                     }
@@ -292,13 +292,16 @@ struct GuidelineRow: View {
     let fixHint: String?
     let passed: Bool
     var isAutoFixable: Bool = false
+    var isJustFixed: Bool = false
     var onFix: (() -> Void)?
 
     private var iconName: String {
-        passed ? "checkmark.circle.fill" : severity.iconName
+        if isJustFixed { return "checkmark.circle.fill" }
+        return passed ? "checkmark.circle.fill" : severity.iconName
     }
 
     private var iconColor: Color {
+        if isJustFixed { return DS.Color.synced }
         if passed { return DS.Color.synced }
         switch severity {
         case .error: return DS.Color.invalid
@@ -313,11 +316,12 @@ struct GuidelineRow: View {
                 Image(systemName: iconName)
                     .font(.system(size: 12))
                     .foregroundStyle(iconColor)
-                Text(title)
+                    .contentTransition(.symbolEffect(.replace))
+                Text(isJustFixed ? "\(title) — Fixed" : title)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(DS.Color.text)
+                    .foregroundStyle(isJustFixed ? DS.Color.synced : DS.Color.text)
                 Spacer()
-                if !passed && isAutoFixable, let onFix {
+                if !passed && !isJustFixed && isAutoFixable, let onFix {
                     Button(action: onFix) {
                         Label("Fix", systemImage: "wrench")
                             .font(.system(size: 11, weight: .medium))
@@ -326,7 +330,8 @@ struct GuidelineRow: View {
                     .foregroundStyle(DS.Color.synced)
                 }
             }
-            if let hint = fixHint, !passed {
+            .animation(.easeInOut(duration: 0.3), value: isJustFixed)
+            if let hint = fixHint, !passed && !isJustFixed {
                 Text(hint)
                     .font(.system(size: 11))
                     .foregroundStyle(DS.Color.textSecondary)

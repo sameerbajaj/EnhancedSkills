@@ -27,6 +27,7 @@ class AppState {
 
     var fixError: String?
     var isFixing = false
+    var recentlyFixedRuleIDs: Set<String> = []
 
     var codexSkillCount = 0
     var claudeSkillCount = 0
@@ -118,8 +119,15 @@ class AppState {
         await MainActor.run { isFixing = true; fixError = nil }
         do {
             try GuidelinesFixer.fix(ruleID: ruleID, skill: skill)
+            await MainActor.run {
+                recentlyFixedRuleIDs.insert(ruleID)
+            }
+            try? await Task.sleep(for: .milliseconds(800))
             await refresh()
-            await MainActor.run { isFixing = false }
+            await MainActor.run {
+                recentlyFixedRuleIDs.remove(ruleID)
+                isFixing = false
+            }
         } catch {
             await MainActor.run { fixError = error.localizedDescription; isFixing = false }
         }
@@ -129,9 +137,17 @@ class AppState {
         guard let report = skill.validationReport else { return }
         await MainActor.run { isFixing = true; fixError = nil }
         do {
+            let fixableIDs = Set(report.violations.filter { $0.isAutoFixable }.map { $0.rule.id })
             try GuidelinesFixer.fixAll(violations: report.violations, skill: skill)
+            await MainActor.run {
+                recentlyFixedRuleIDs.formUnion(fixableIDs)
+            }
+            try? await Task.sleep(for: .milliseconds(800))
             await refresh()
-            await MainActor.run { isFixing = false }
+            await MainActor.run {
+                recentlyFixedRuleIDs.subtract(fixableIDs)
+                isFixing = false
+            }
         } catch {
             await MainActor.run { fixError = error.localizedDescription; isFixing = false }
         }

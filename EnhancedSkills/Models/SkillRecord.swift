@@ -35,6 +35,12 @@ struct SkillRecord: Identifiable, Equatable {
     var hasGuidelineIssues: Bool { totalViolationCount > 0 }
 
     static func == (lhs: SkillRecord, rhs: SkillRecord) -> Bool {
-        lhs.id == rhs.id
+        lhs.id == rhs.id &&
+        lhs.displayName == rhs.displayName &&
+        lhs.description == rhs.description &&
+        lhs.status == rhs.status &&
+        lhs.totalViolationCount == rhs.totalViolationCount &&
+        lhs.codexSkill?.parseStatus == rhs.codexSkill?.parseStatus &&
+        lhs.claudeSkill?.parseStatus == rhs.claudeSkill?.parseStatus
     }
 }
