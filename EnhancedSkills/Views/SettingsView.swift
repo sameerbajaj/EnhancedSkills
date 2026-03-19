@@ -3,72 +3,44 @@ import AppKit
 
 struct SettingsView: View {
     @Bindable var settings: SettingsStore
-    @State private var selectedTab: SettingsTab = .core
-
-    enum SettingsTab: String, CaseIterable {
-        case core = "Core"
-        case extensions = "Extensions"
-
-        var providers: [Provider] {
-            switch self {
-            case .core: return [.codex, .claude]
-            case .extensions: return [.openclaw, .gemini, .antigravity]
-            }
-        }
-    }
 
     var body: some View {
-        VStack(spacing: 0) {
-            // Tab bar
-            HStack(spacing: 0) {
-                ForEach(SettingsTab.allCases, id: \.self) { tab in
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) {
-                            selectedTab = tab
-                        }
-                    } label: {
-                        VStack(spacing: 4) {
-                            Text(tab.rawValue)
-                                .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
-                                .foregroundStyle(selectedTab == tab ? DS.Color.accent : DS.Color.textSecondary)
-                                .padding(.horizontal, DS.Spacing.lg)
-                                .padding(.top, DS.Spacing.md)
-                                .padding(.bottom, DS.Spacing.xs)
-                            Rectangle()
-                                .fill(selectedTab == tab ? DS.Color.accent : Color.clear)
-                                .frame(height: 2)
-                                .padding(.horizontal, DS.Spacing.md)
-                        }
-                    }
-                    .buttonStyle(.plain)
-                }
-                Spacer()
+        VStack(alignment: .leading, spacing: 0) {
+            // Header
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Providers")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(DS.Color.text)
+                Text("Enable providers and configure their skill directories.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.textSecondary)
             }
             .padding(.horizontal, DS.Spacing.xl)
-            .padding(.top, DS.Spacing.md)
+            .padding(.top, DS.Spacing.xl)
+            .padding(.bottom, DS.Spacing.lg)
 
             Divider()
 
-            // Tab content — fixed, no scroll
-            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                VStack(spacing: DS.Spacing.sm) {
-                    ForEach(selectedTab.providers) { provider in
-                        ProviderSettingsRow(provider: provider, settings: settings)
-                    }
-                }
-
-                Spacer()
-
-                if selectedTab == .extensions {
-                    Text("Extensions are disabled by default. Enable and configure a path to start syncing.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(DS.Color.textTertiary)
+            // All providers in one flat list
+            VStack(spacing: DS.Spacing.sm) {
+                ForEach(Provider.allCases) { provider in
+                    ProviderSettingsRow(provider: provider, settings: settings)
                 }
             }
-            .padding(DS.Spacing.xl)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.lg)
+            .padding(.bottom, DS.Spacing.md)
+
+            Spacer()
+
+            // Footer hint
+            Text("Gemini and Antigravity are disabled by default. Enable them and set a path to start syncing.")
+                .font(.system(size: 11))
+                .foregroundStyle(DS.Color.textTertiary)
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.bottom, DS.Spacing.lg)
         }
-        .frame(width: 520, height: 380)
+        .frame(width: 640, height: 500)
     }
 }
 
