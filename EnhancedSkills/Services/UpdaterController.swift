@@ -4,9 +4,13 @@ import Foundation
 @MainActor
 final class UpdaterController {
     private var isChecking = false
+    private let settings: SettingsStore
 
-    init() {
-        Task { await checkForUpdates(userInitiated: false) }
+    init(settings: SettingsStore) {
+        self.settings = settings
+        if settings.autoCheckForUpdates {
+            Task { await checkForUpdates(userInitiated: false) }
+        }
     }
 
     func checkForUpdatesFromMenu() {
@@ -18,9 +22,14 @@ final class UpdaterController {
         isChecking = true
         defer { isChecking = false }
 
-        switch await UpdateChecker.check() {
+        let result = await UpdateChecker.check()
+        settings.recordUpdateCheck()
+
+        switch result {
         case .updateAvailable(let update):
-            presentUpdateAlert(for: update)
+            if userInitiated || settings.notifyOnUpdates {
+                presentUpdateAlert(for: update)
+            }
         case .upToDate:
             if userInitiated {
                 showAlert(title: "EnhancedSkills is Up to Date", message: "No newer GitHub release was found.")

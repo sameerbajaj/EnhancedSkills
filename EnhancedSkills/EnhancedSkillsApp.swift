@@ -2,12 +2,18 @@ import SwiftUI
 
 @main
 struct EnhancedSkillsApp: App {
-    private let updaterController = UpdaterController()
     @State private var settingsStore = SettingsStore()
+    private var updaterController: UpdaterController
+
+    init() {
+        let store = SettingsStore()
+        _settingsStore = State(initialValue: store)
+        updaterController = UpdaterController(settings: store)
+    }
 
     var body: some Scene {
         WindowGroup {
-            ContentView(settings: settingsStore)
+            ContentView(settings: settingsStore, updaterController: updaterController)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
@@ -17,7 +23,7 @@ struct EnhancedSkillsApp: App {
         }
 
         Settings {
-            SettingsView(settings: settingsStore)
+            SettingsView(settings: settingsStore, updaterController: updaterController)
         }
     }
 }

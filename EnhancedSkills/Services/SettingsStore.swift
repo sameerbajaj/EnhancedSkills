@@ -7,8 +7,37 @@ class SettingsStore {
     // Provider enabled state
     private var enabled: [Provider: Bool] = [:]
 
+    // Update settings
+    var autoCheckForUpdates: Bool {
+        didSet { UserDefaults.standard.set(autoCheckForUpdates, forKey: "settings.autoCheckForUpdates") }
+    }
+    var notifyOnUpdates: Bool {
+        didSet { UserDefaults.standard.set(notifyOnUpdates, forKey: "settings.notifyOnUpdates") }
+    }
+    private(set) var lastUpdateCheckDate: Date? {
+        didSet { UserDefaults.standard.set(lastUpdateCheckDate, forKey: "settings.lastUpdateCheckDate") }
+    }
+
+    func recordUpdateCheck() {
+        lastUpdateCheckDate = Date()
+    }
+
     init() {
         let defaults = UserDefaults.standard
+
+        // Update settings
+        if defaults.object(forKey: "settings.autoCheckForUpdates") != nil {
+            autoCheckForUpdates = defaults.bool(forKey: "settings.autoCheckForUpdates")
+        } else {
+            autoCheckForUpdates = true
+        }
+        if defaults.object(forKey: "settings.notifyOnUpdates") != nil {
+            notifyOnUpdates = defaults.bool(forKey: "settings.notifyOnUpdates")
+        } else {
+            notifyOnUpdates = true
+        }
+        lastUpdateCheckDate = defaults.object(forKey: "settings.lastUpdateCheckDate") as? Date
+
         for provider in Provider.allCases {
             let savedPath = defaults.string(forKey: "settings.\(provider.rawValue)Path")
             paths[provider] = Self.nonEmpty(savedPath) ?? provider.defaultRootPath?.path ?? ""

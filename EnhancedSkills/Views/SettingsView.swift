@@ -1,12 +1,88 @@
 import SwiftUI
 import AppKit
 
+// MARK: - Settings Tab
+
+enum SettingsTab: String, CaseIterable, Identifiable {
+    case providers = "Providers"
+    case update = "Update"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .providers: "square.grid.2x2"
+        case .update: "arrow.triangle.2.circlepath"
+        }
+    }
+}
+
+// MARK: - Settings View
+
 struct SettingsView: View {
+    @Bindable var settings: SettingsStore
+    var updaterController: UpdaterController?
+    @State private var selectedTab: SettingsTab = .providers
+
+    var body: some View {
+        HStack(spacing: 0) {
+            // Sidebar
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                ForEach(SettingsTab.allCases) { tab in
+                    Button {
+                        selectedTab = tab
+                    } label: {
+                        HStack(spacing: DS.Spacing.sm) {
+                            Image(systemName: tab.icon)
+                                .frame(width: 16)
+                            Text(tab.rawValue)
+                                .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
+                        }
+                        .foregroundStyle(selectedTab == tab ? .white : DS.Color.text)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.vertical, DS.Spacing.sm)
+                        .padding(.horizontal, DS.Spacing.md)
+                        .background(
+                            selectedTab == tab
+                                ? DS.Color.accent
+                                : Color.clear
+                        )
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer()
+            }
+            .padding(DS.Spacing.md)
+            .frame(width: 180)
+            .background(DS.Color.canvas)
+
+            Divider()
+
+            // Content
+            ScrollView {
+                switch selectedTab {
+                case .providers:
+                    ProvidersSettingsContent(settings: settings)
+                case .update:
+                    UpdateSettingsContent(settings: settings, updaterController: updaterController)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .background(DS.Color.surface)
+        }
+        .frame(minWidth: 600, minHeight: 420)
+    }
+}
+
+// MARK: - Providers Settings Content
+
+struct ProvidersSettingsContent: View {
     @Bindable var settings: SettingsStore
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Header
             VStack(alignment: .leading, spacing: 4) {
                 Text("Providers")
                     .font(.system(size: 17, weight: .semibold))
@@ -21,7 +97,6 @@ struct SettingsView: View {
 
             Divider()
 
-            // All providers in one flat list
             VStack(spacing: DS.Spacing.sm) {
                 ForEach(Provider.allCases) { provider in
                     ProviderSettingsRow(provider: provider, settings: settings)
@@ -31,16 +106,111 @@ struct SettingsView: View {
             .padding(.top, DS.Spacing.lg)
             .padding(.bottom, DS.Spacing.md)
 
-            Spacer()
-
-            // Footer hint
             Text("Gemini and Antigravity are disabled by default. Enable them and set a path to start syncing.")
                 .font(.system(size: 11))
                 .foregroundStyle(DS.Color.textTertiary)
                 .padding(.horizontal, DS.Spacing.xl)
                 .padding(.bottom, DS.Spacing.lg)
         }
-        .frame(width: 640, height: 500)
+    }
+}
+
+// MARK: - Update Settings Content
+
+struct UpdateSettingsContent: View {
+    @Bindable var settings: SettingsStore
+    var updaterController: UpdaterController?
+
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "Unknown"
+    }
+
+    private var buildNumber: String {
+        Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "Unknown"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Update")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(DS.Color.text)
+                Text("Manage how EnhancedSkills checks for and installs updates.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.textSecondary)
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.xl)
+            .padding(.bottom, DS.Spacing.lg)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                // Version info card
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Text("Version Info")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.Color.text)
+
+                    HStack {
+                        Text("Current Version")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Color.textSecondary)
+                        Spacer()
+                        Text("\(appVersion) (\(buildNumber))")
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(DS.Color.text)
+                    }
+
+                    HStack {
+                        Text("Last Checked")
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Color.textSecondary)
+                        Spacer()
+                        Text(lastCheckedText)
+                            .font(.system(size: 12))
+                            .foregroundStyle(DS.Color.text)
+                    }
+                }
+                .padding(DS.Spacing.md)
+                .background(DS.Color.canvas)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.borderLight, lineWidth: 1)
+                )
+
+                // Toggles
+                VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                    Toggle("Automatically check for updates on startup", isOn: $settings.autoCheckForUpdates)
+                        .font(.system(size: 13))
+                        .foregroundStyle(DS.Color.text)
+
+                    Toggle("Notify when updates are available", isOn: $settings.notifyOnUpdates)
+                        .font(.system(size: 13))
+                        .foregroundStyle(DS.Color.text)
+                }
+
+                // Check now button
+                Button {
+                    updaterController?.checkForUpdatesFromMenu()
+                } label: {
+                    Text("Check for Updates Now")
+                        .font(.system(size: 13, weight: .medium))
+                }
+                .controlSize(.regular)
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.lg)
+            .padding(.bottom, DS.Spacing.xl)
+        }
+    }
+
+    private var lastCheckedText: String {
+        guard let date = settings.lastUpdateCheckDate else { return "Never" }
+        let formatter = RelativeDateTimeFormatter()
+        formatter.unitsStyle = .full
+        return formatter.localizedString(for: date, relativeTo: Date())
     }
 }
 

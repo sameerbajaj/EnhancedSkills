@@ -2,10 +2,12 @@ import SwiftUI
 
 struct ContentView: View {
     let settings: SettingsStore
+    let updaterController: UpdaterController
     @State private var appState: AppState
 
-    init(settings: SettingsStore) {
+    init(settings: SettingsStore, updaterController: UpdaterController) {
         self.settings = settings
+        self.updaterController = updaterController
         self._appState = State(initialValue: AppState(settings: settings))
     }
 
@@ -29,12 +31,12 @@ struct ContentView: View {
         .sheet(isPresented: $appState.showSettings) {
             _ = Task { await appState.refresh() }
         } content: {
-            SettingsView(settings: settings)
-                .frame(minWidth: 500, minHeight: 300)
+            SettingsView(settings: settings, updaterController: updaterController)
+                .frame(minWidth: 600, minHeight: 420)
         }
     }
 }
 
 #Preview {
-    ContentView(settings: SettingsStore())
+    ContentView(settings: SettingsStore(), updaterController: UpdaterController(settings: SettingsStore()))
 }
