@@ -21,3 +21,17 @@ dist/*.dmg
 
 # SPM
 .build/
+
+# Sensitive local folders
+.claude/
+
+# Environment and local secrets
+.env
+.env.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.mobileprovision
+id_rsa
+id_rsa.pub
