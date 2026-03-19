@@ -93,7 +93,13 @@ struct GuidelinesValidator {
         body: String
     ) -> ValidationReport {
         let provider = skill.provider
-        let applicableRules = commonRules + (provider == .claude ? claudeRules : codexRules)
+        let providerRules: [GuidelineRule]
+        switch provider {
+        case .claude: providerRules = claudeRules
+        case .codex: providerRules = codexRules
+        case .openclaw: providerRules = []
+        }
+        let applicableRules = commonRules + providerRules
 
         var violations: [GuidelineViolation] = []
         var passed: [GuidelineRule] = []

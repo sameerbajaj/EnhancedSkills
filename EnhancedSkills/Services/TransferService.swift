@@ -2,6 +2,7 @@ import Foundation
 
 enum TransferError: LocalizedError {
     case noSource
+    case noDestinationPath(Provider)
     case sourceNotFound(URL)
     case rootCreationFailed(URL, Error)
     case copyFailed(URL, URL, Error)
@@ -9,6 +10,7 @@ enum TransferError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .noSource: return "No source skill available for transfer."
+        case .noDestinationPath(let p): return "\(p.displayName) path is not configured. Set it in Settings."
         case .sourceNotFound(let u): return "Source not found: \(u.path)"
         case .rootCreationFailed(let u, let e): return "Could not create \(u.path): \(e.localizedDescription)"
         case .copyFailed(let s, let d, let e): return "Copy failed \(s.lastPathComponent) → \(d.lastPathComponent): \(e.localizedDescription)"
@@ -17,18 +19,19 @@ enum TransferError: LocalizedError {
 }
 
 struct TransferService {
-    static func buildPlan(for record: SkillRecord, to destination: Provider) throws -> SkillTransferPlan {
+    static func buildPlan(for record: SkillRecord, to destination: Provider, destinationRoot: URL?) throws -> SkillTransferPlan {
+        // Find a source skill from any other provider
         let source: DiscoveredSkill
-        switch destination {
-        case .claude:
-            guard let s = record.codexSkill else { throw TransferError.noSource }
-            source = s
-        case .codex:
-            guard let s = record.claudeSkill else { throw TransferError.noSource }
-            source = s
+        let candidates = [record.codexSkill, record.claudeSkill, record.openclawSkill]
+            .compactMap { $0 }
+            .filter { $0.provider != destination }
+        guard let s = candidates.first else { throw TransferError.noSource }
+        source = s
+
+        guard let destRoot = destinationRoot else {
+            throw TransferError.noDestinationPath(destination)
         }
 
-        let destRoot = destination.defaultRootPath
         let destPath = destRoot.appendingPathComponent(source.folderName)
         let destExists = FileManager.default.fileExists(atPath: destPath.path)
         let fileCount = countItems(at: source.skillPath)

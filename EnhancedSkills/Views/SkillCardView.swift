@@ -35,6 +35,9 @@ struct SkillCardView: View {
                 if record.claudeSkill != nil {
                     ProviderBadge(provider: .claude)
                 }
+                if record.openclawSkill != nil {
+                    ProviderBadge(provider: .openclaw)
+                }
                 if record.totalViolationCount > 0 {
                     HStack(spacing: 3) {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -84,6 +87,7 @@ struct StatusPill: View {
         case .synced: return DS.Color.synced
         case .codexOnly: return DS.Color.codexOnly
         case .claudeOnly: return DS.Color.claudeOnly
+        case .openclawOnly: return DS.Color.openclawOnly
         case .conflict, .invalid: return DS.Color.invalid
         }
     }
@@ -92,6 +96,7 @@ struct StatusPill: View {
         case .synced: return DS.Color.syncedBg
         case .codexOnly: return DS.Color.codexOnlyBg
         case .claudeOnly: return DS.Color.claudeOnlyBg
+        case .openclawOnly: return DS.Color.openclawOnlyBg
         case .conflict, .invalid: return DS.Color.invalidBg
         }
     }

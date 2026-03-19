@@ -18,6 +18,8 @@ enum DS {
         static let codexOnlyBg = SwiftUI.Color(red: 0.70, green: 0.38, blue: 0.10).opacity(0.10)
         static let claudeOnly = SwiftUI.Color(red: 0.52, green: 0.20, blue: 0.73)
         static let claudeOnlyBg = SwiftUI.Color(red: 0.52, green: 0.20, blue: 0.73).opacity(0.10)
+        static let openclawOnly = SwiftUI.Color(red: 0.08, green: 0.65, blue: 0.52)
+        static let openclawOnlyBg = SwiftUI.Color(red: 0.08, green: 0.65, blue: 0.52).opacity(0.10)
         static let invalid = SwiftUI.Color(red: 0.72, green: 0.14, blue: 0.14)
         static let invalidBg = SwiftUI.Color(red: 0.72, green: 0.14, blue: 0.14).opacity(0.10)
         static let warning = SwiftUI.Color(red: 0.78, green: 0.56, blue: 0.10)

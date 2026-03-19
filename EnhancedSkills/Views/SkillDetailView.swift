@@ -57,10 +57,41 @@ struct DetailContent: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    // Provider badges
-                    HStack(spacing: DS.Spacing.sm) {
-                        if record.codexSkill != nil { ProviderBadge(provider: .codex) }
-                        if record.claudeSkill != nil { ProviderBadge(provider: .claude) }
+                    // Provider badges with folder reveal icons
+                    HStack(spacing: DS.Spacing.md) {
+                        if let skill = record.codexSkill {
+                            HStack(spacing: DS.Spacing.xs) {
+                                ProviderBadge(provider: .codex)
+                                Button { state.revealInFinder(skill) } label: {
+                                    Image(systemName: "folder")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(DS.Color.textTertiary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        if let skill = record.claudeSkill {
+                            HStack(spacing: DS.Spacing.xs) {
+                                ProviderBadge(provider: .claude)
+                                Button { state.revealInFinder(skill) } label: {
+                                    Image(systemName: "folder")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(DS.Color.textTertiary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        if let skill = record.openclawSkill {
+                            HStack(spacing: DS.Spacing.xs) {
+                                ProviderBadge(provider: .openclaw)
+                                Button { state.revealInFinder(skill) } label: {
+                                    Image(systemName: "folder")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(DS.Color.textTertiary)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
                     }
                 }
 
@@ -96,17 +127,47 @@ struct DetailContent: View {
 
                 Divider()
 
-                // Paths
+                // Paths with folder reveal buttons
                 VStack(alignment: .leading, spacing: DS.Spacing.md) {
                     Text("LOCATIONS")
                         .font(.system(size: 10, weight: .semibold))
                         .foregroundStyle(DS.Color.textTertiary)
 
                     if let skill = record.codexSkill {
-                        PathLine(provider: .codex, path: skill.skillPath.path)
+                        HStack {
+                            PathLine(provider: .codex, path: skill.skillPath.path)
+                            Spacer()
+                            Button { state.revealInFinder(skill) } label: {
+                                Image(systemName: "folder")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(DS.Color.textTertiary)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                     if let skill = record.claudeSkill {
-                        PathLine(provider: .claude, path: skill.skillPath.path)
+                        HStack {
+                            PathLine(provider: .claude, path: skill.skillPath.path)
+                            Spacer()
+                            Button { state.revealInFinder(skill) } label: {
+                                Image(systemName: "folder")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(DS.Color.textTertiary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    if let skill = record.openclawSkill {
+                        HStack {
+                            PathLine(provider: .openclaw, path: skill.skillPath.path)
+                            Spacer()
+                            Button { state.revealInFinder(skill) } label: {
+                                Image(systemName: "folder")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(DS.Color.textTertiary)
+                            }
+                            .buttonStyle(.plain)
+                        }
                     }
                 }
 
@@ -131,41 +192,7 @@ struct DetailContent: View {
                 Divider()
 
                 // Transfer actions
-                VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                    Text("SYNC ACTIONS")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(DS.Color.textTertiary)
-
-                    if record.codexSkill != nil && record.claudeSkill == nil {
-                        TransferButton(label: "Copy to Claude", icon: "arrow.right.circle.fill", provider: .claude) {
-                            state.startTransfer(to: .claude)
-                        }
-                    } else if record.claudeSkill != nil && record.codexSkill == nil {
-                        TransferButton(label: "Copy to Codex", icon: "arrow.left.circle.fill", provider: .codex) {
-                            state.startTransfer(to: .codex)
-                        }
-                    } else if record.status == .synced {
-                        HStack(spacing: DS.Spacing.sm) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(DS.Color.synced)
-                            Text("Skill is synced across both providers.")
-                                .font(.system(size: 13))
-                                .foregroundStyle(DS.Color.textSecondary)
-                        }
-                        .padding(DS.Spacing.lg)
-                        .background(DS.Color.syncedBg)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-                    }
-
-                    if let err = state.transferError {
-                        Text(err)
-                            .font(.system(size: 12))
-                            .foregroundStyle(DS.Color.invalid)
-                            .padding(DS.Spacing.md)
-                            .background(DS.Color.invalidBg)
-                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
-                    }
-                }
+                SyncActionsSection(record: record, state: state)
             }
             .padding(DS.Spacing.xxl)
         }
@@ -174,6 +201,59 @@ struct DetailContent: View {
         .sheet(isPresented: $state.showTransferSheet) {
             if let plan = state.transferPlan {
                 TransferConfirmationSheet(plan: plan, state: state)
+            }
+        }
+    }
+}
+
+struct SyncActionsSection: View {
+    let record: SkillRecord
+    @Bindable var state: AppState
+
+    private var missingProviders: [Provider] {
+        var missing: [Provider] = []
+        if record.codexSkill == nil { missing.append(.codex) }
+        if record.claudeSkill == nil { missing.append(.claude) }
+        if record.openclawSkill == nil && state.openclawRootExists { missing.append(.openclaw) }
+        return missing
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            Text("SYNC ACTIONS")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(DS.Color.textTertiary)
+
+            if missingProviders.isEmpty {
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(DS.Color.synced)
+                    Text("Skill is synced across all providers.")
+                        .font(.system(size: 13))
+                        .foregroundStyle(DS.Color.textSecondary)
+                }
+                .padding(DS.Spacing.lg)
+                .background(DS.Color.syncedBg)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            } else {
+                ForEach(missingProviders, id: \.self) { dest in
+                    TransferButton(
+                        label: "Copy to \(dest.displayName)",
+                        icon: "arrow.right.circle.fill",
+                        provider: dest
+                    ) {
+                        state.startTransfer(to: dest)
+                    }
+                }
+            }
+
+            if let err = state.transferError {
+                Text(err)
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.invalid)
+                    .padding(DS.Spacing.md)
+                    .background(DS.Color.invalidBg)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
             }
         }
     }
@@ -219,6 +299,7 @@ struct GuidelinesSection: View {
         var result: [(Provider, ValidationReport, DiscoveredSkill)] = []
         if let skill = record.codexSkill, let r = skill.validationReport { result.append((.codex, r, skill)) }
         if let skill = record.claudeSkill, let r = skill.validationReport { result.append((.claude, r, skill)) }
+        if let skill = record.openclawSkill, let r = skill.validationReport { result.append((.openclaw, r, skill)) }
         return result
     }
 

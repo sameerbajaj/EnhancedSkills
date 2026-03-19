@@ -30,6 +30,13 @@ struct SidebarView: View {
                     skillCount: state.claudeSkillCount,
                     rootExists: state.claudeRootExists
                 )
+                if state.openclawRootExists || !state.settings.openclawPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    ProviderSummaryCard(
+                        provider: .openclaw,
+                        skillCount: state.openclawSkillCount,
+                        rootExists: state.openclawRootExists
+                    )
+                }
             }
             .padding(.horizontal, DS.Spacing.lg)
 
@@ -56,25 +63,36 @@ struct SidebarView: View {
 
             Spacer()
 
-            // Refresh
-            Button {
-                Task { await state.refresh() }
-            } label: {
-                HStack(spacing: DS.Spacing.sm) {
-                    Image(systemName: state.isLoading ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
-                        .font(.system(size: 13, weight: .medium))
-                        .rotationEffect(state.isLoading ? .degrees(360) : .zero)
-                        .animation(state.isLoading ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: state.isLoading)
-                    Text(state.isLoading ? "Refreshing…" : "Refresh")
-                        .font(.system(size: 13, weight: .medium))
+            // Refresh + Settings
+            HStack(spacing: DS.Spacing.sm) {
+                Button {
+                    Task { await state.refresh() }
+                } label: {
+                    HStack(spacing: DS.Spacing.sm) {
+                        Image(systemName: state.isLoading ? "arrow.triangle.2.circlepath" : "arrow.clockwise")
+                            .font(.system(size: 13, weight: .medium))
+                            .rotationEffect(state.isLoading ? .degrees(360) : .zero)
+                            .animation(state.isLoading ? .linear(duration: 1).repeatForever(autoreverses: false) : .default, value: state.isLoading)
+                        Text(state.isLoading ? "Refreshing…" : "Refresh")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundStyle(DS.Color.textSecondary)
                 }
-                .foregroundStyle(DS.Color.textSecondary)
-                .padding(.horizontal, DS.Spacing.lg)
-                .padding(.vertical, DS.Spacing.md)
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .buttonStyle(.plain)
+
+                Spacer()
+
+                Button {
+                    state.showSettings = true
+                } label: {
+                    Image(systemName: "gear")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(DS.Color.textSecondary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
-            .padding(.horizontal, DS.Spacing.sm)
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.vertical, DS.Spacing.md)
             .padding(.bottom, DS.Spacing.xl)
         }
         .frame(width: 220)

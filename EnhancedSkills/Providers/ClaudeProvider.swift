@@ -5,7 +5,7 @@ struct ClaudeProvider: SkillProvider {
     let rootPath: URL
 
     init(rootPath: URL? = nil) {
-        self.rootPath = rootPath ?? Provider.claude.defaultRootPath
+        self.rootPath = rootPath ?? Provider.claude.defaultRootPath!
     }
 
     func discoverSkills() async throws -> [DiscoveredSkill] {

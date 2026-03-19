@@ -3,6 +3,7 @@ import SwiftUI
 enum Provider: String, CaseIterable, Identifiable, Equatable {
     case codex
     case claude
+    case openclaw
 
     var id: String { rawValue }
 
@@ -10,14 +11,16 @@ enum Provider: String, CaseIterable, Identifiable, Equatable {
         switch self {
         case .codex: return "Codex"
         case .claude: return "Claude"
+        case .openclaw: return "OpenClaw"
         }
     }
 
-    var defaultRootPath: URL {
+    var defaultRootPath: URL? {
         let home = FileManager.default.homeDirectoryForCurrentUser
         switch self {
         case .codex: return home.appendingPathComponent(".codex/skills")
         case .claude: return home.appendingPathComponent(".claude/skills")
+        case .openclaw: return nil
         }
     }
 
@@ -25,6 +28,7 @@ enum Provider: String, CaseIterable, Identifiable, Equatable {
         switch self {
         case .codex: return DS.Color.codexOnly
         case .claude: return DS.Color.claudeOnly
+        case .openclaw: return DS.Color.openclawOnly
         }
     }
 
@@ -32,6 +36,7 @@ enum Provider: String, CaseIterable, Identifiable, Equatable {
         switch self {
         case .codex: return DS.Color.codexOnlyBg
         case .claude: return DS.Color.claudeOnlyBg
+        case .openclaw: return DS.Color.openclawOnlyBg
         }
     }
 }

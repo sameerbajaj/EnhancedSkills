@@ -6,12 +6,15 @@ enum FilterOption: String, CaseIterable, Equatable {
     case needsSync = "Needs Sync"
     case codexOnly = "Codex Only"
     case claudeOnly = "Claude Only"
+    case openclawOnly = "OpenClaw Only"
     case system = "System"
     case hasIssues = "Has Issues"
 }
 
 @Observable
 class AppState {
+    let settings: SettingsStore
+
     var allRecords: [SkillRecord] = []
     var selectedRecord: SkillRecord?
     var searchText: String = ""
@@ -29,21 +32,31 @@ class AppState {
     var isFixing = false
     var recentlyFixedRuleIDs: Set<String> = []
 
+    var showSettings = false
+
     var codexSkillCount = 0
     var claudeSkillCount = 0
+    var openclawSkillCount = 0
     var codexRootExists = false
     var claudeRootExists = false
+    var openclawRootExists = false
+
+    init(settings: SettingsStore) {
+        self.settings = settings
+    }
 
     var filteredRecords: [SkillRecord] {
         var records = allRecords
         switch activeFilter {
         case .all: break
         case .needsSync:
-            records = records.filter { $0.status == .codexOnly || $0.status == .claudeOnly }
+            records = records.filter { $0.status == .codexOnly || $0.status == .claudeOnly || $0.status == .openclawOnly }
         case .codexOnly:
             records = records.filter { $0.status == .codexOnly }
         case .claudeOnly:
             records = records.filter { $0.status == .claudeOnly }
+        case .openclawOnly:
+            records = records.filter { $0.status == .openclawOnly }
         case .system:
             records = records.filter { $0.codexSkill?.isSystem == true }
         case .hasIssues:
@@ -61,26 +74,30 @@ class AppState {
     }
 
     var syncedCount: Int { allRecords.filter { $0.status == .synced }.count }
-    var needsSyncCount: Int { allRecords.filter { $0.status == .codexOnly || $0.status == .claudeOnly }.count }
+    var needsSyncCount: Int { allRecords.filter { $0.status == .codexOnly || $0.status == .claudeOnly || $0.status == .openclawOnly }.count }
     var issueCount: Int { allRecords.filter { $0.hasGuidelineIssues }.count }
 
     func refresh() async {
         await MainActor.run { isLoading = true; errorMessage = nil }
-        let codex = CodexProvider()
-        let claude = ClaudeProvider()
+        let codex = CodexProvider(rootPath: settings.rootPath(for: .codex))
+        let claude = ClaudeProvider(rootPath: settings.rootPath(for: .claude))
+        let openclaw = OpenClawProvider(rootPath: settings.rootPath(for: .openclaw))
         do {
             async let cs = codex.discoverSkills()
             async let cls = claude.discoverSkills()
-            let (codexSkills, claudeSkills) = try await (cs, cls)
-            let merged = SkillInventory.merge(codexSkills: codexSkills, claudeSkills: claudeSkills)
+            async let ocs = openclaw.discoverSkills()
+            let (codexSkills, claudeSkills, openclawSkills) = try await (cs, cls, ocs)
+            let merged = SkillInventory.merge(codexSkills: codexSkills, claudeSkills: claudeSkills, openclawSkills: openclawSkills)
             let fm = FileManager.default
             await MainActor.run {
                 let prevSlug = selectedRecord?.slug
                 allRecords = merged
                 codexSkillCount = codexSkills.count
                 claudeSkillCount = claudeSkills.count
+                openclawSkillCount = openclawSkills.count
                 codexRootExists = fm.fileExists(atPath: codex.rootPath.path)
                 claudeRootExists = fm.fileExists(atPath: claude.rootPath.path)
+                openclawRootExists = settings.rootPath(for: .openclaw) != nil && fm.fileExists(atPath: openclaw.rootPath.path)
                 isLoading = false
                 if let slug = prevSlug, let found = merged.first(where: { $0.slug == slug }) {
                     selectedRecord = found
@@ -96,7 +113,8 @@ class AppState {
     func startTransfer(to destination: Provider) {
         guard let record = selectedRecord else { return }
         do {
-            transferPlan = try TransferService.buildPlan(for: record, to: destination)
+            let destRoot = settings.rootPath(for: destination)
+            transferPlan = try TransferService.buildPlan(for: record, to: destination, destinationRoot: destRoot)
             showTransferSheet = true
         } catch {
             transferError = error.localizedDescription

@@ -1,7 +1,13 @@
 import SwiftUI
 
 struct ContentView: View {
-    @State private var appState = AppState()
+    let settings: SettingsStore
+    @State private var appState: AppState
+
+    init(settings: SettingsStore) {
+        self.settings = settings
+        self._appState = State(initialValue: AppState(settings: settings))
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -20,9 +26,15 @@ struct ContentView: View {
         .task {
             await appState.refresh()
         }
+        .sheet(isPresented: $appState.showSettings) {
+            Task { await appState.refresh() }
+        } content: {
+            SettingsView(settings: settings)
+                .frame(minWidth: 500, minHeight: 300)
+        }
     }
 }
 
 #Preview {
-    ContentView()
+    ContentView(settings: SettingsStore())
 }
