@@ -30,11 +30,11 @@ struct SidebarView: View {
                     skillCount: state.claudeSkillCount,
                     rootExists: state.claudeRootExists
                 )
-                if state.openclawRootExists || !state.settings.openclawPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                if !state.settings.openclawPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ProviderSummaryCard(
                         provider: .openclaw,
                         skillCount: state.openclawSkillCount,
-                        rootExists: state.openclawRootExists
+                        rootExists: state.settings.pathExists(for: .openclaw)
                     )
                 }
             }

@@ -27,7 +27,7 @@ struct ContentView: View {
             await appState.refresh()
         }
         .sheet(isPresented: $appState.showSettings) {
-            Task { await appState.refresh() }
+            _ = Task { await appState.refresh() }
         } content: {
             SettingsView(settings: settings)
                 .frame(minWidth: 500, minHeight: 300)
