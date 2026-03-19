@@ -81,23 +81,24 @@ class AppState {
         await MainActor.run { isLoading = true; errorMessage = nil }
         let codex = CodexProvider(rootPath: settings.rootPath(for: .codex))
         let claude = ClaudeProvider(rootPath: settings.rootPath(for: .claude))
-        let openclaw = OpenClawProvider(rootPath: settings.rootPath(for: .openclaw))
+        let openclawRoot = settings.rootPath(for: .openclaw)
+        let openclaw = OpenClawProvider(rootPath: openclawRoot)
         do {
             async let cs = codex.discoverSkills()
             async let cls = claude.discoverSkills()
-            async let ocs = openclaw.discoverSkills()
-            let (codexSkills, claudeSkills, openclawSkills) = try await (cs, cls, ocs)
+            let (codexSkills, claudeSkills) = try await (cs, cls)
+            // Discover OpenClaw separately so failure doesn't block codex/claude
+            let openclawSkills = (try? await openclaw.discoverSkills()) ?? []
             let merged = SkillInventory.merge(codexSkills: codexSkills, claudeSkills: claudeSkills, openclawSkills: openclawSkills)
-            let fm = FileManager.default
             await MainActor.run {
                 let prevSlug = selectedRecord?.slug
                 allRecords = merged
                 codexSkillCount = codexSkills.count
                 claudeSkillCount = claudeSkills.count
                 openclawSkillCount = openclawSkills.count
-                codexRootExists = fm.fileExists(atPath: codex.rootPath.path)
-                claudeRootExists = fm.fileExists(atPath: claude.rootPath.path)
-                openclawRootExists = settings.rootPath(for: .openclaw) != nil && fm.fileExists(atPath: openclaw.rootPath.path)
+                codexRootExists = settings.pathExists(for: .codex)
+                claudeRootExists = settings.pathExists(for: .claude)
+                openclawRootExists = settings.pathExists(for: .openclaw)
                 isLoading = false
                 if let slug = prevSlug, let found = merged.first(where: { $0.slug == slug }) {
                     selectedRecord = found

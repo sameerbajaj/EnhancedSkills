@@ -6,7 +6,8 @@ struct OpenClawProvider: SkillProvider {
 
     init(rootPath: URL?) {
         guard let rootPath else {
-            self.rootPath = URL(fileURLWithPath: "/dev/null")
+            // Use a path that won't exist so discoverSkills() returns []
+            self.rootPath = URL(fileURLWithPath: "/nonexistent")
             return
         }
         self.rootPath = rootPath
@@ -14,7 +15,8 @@ struct OpenClawProvider: SkillProvider {
 
     func discoverSkills() async throws -> [DiscoveredSkill] {
         let fm = FileManager.default
-        guard fm.fileExists(atPath: rootPath.path) else { return [] }
+        var isDir: ObjCBool = false
+        guard fm.fileExists(atPath: rootPath.path, isDirectory: &isDir), isDir.boolValue else { return [] }
 
         let contents = try fm.contentsOfDirectory(
             at: rootPath,

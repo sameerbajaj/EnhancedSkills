@@ -14,11 +14,16 @@ class SettingsStore {
 
     init() {
         let defaults = UserDefaults.standard
-        self.codexPath = defaults.string(forKey: "settings.codexPath")
+        let savedCodex = defaults.string(forKey: "settings.codexPath")
+        let savedClaude = defaults.string(forKey: "settings.claudePath")
+        let savedOpenclaw = defaults.string(forKey: "settings.openclawPath")
+
+        // Use saved value only if non-empty; otherwise fall back to default
+        self.codexPath = Self.nonEmpty(savedCodex)
             ?? Provider.codex.defaultRootPath?.path ?? ""
-        self.claudePath = defaults.string(forKey: "settings.claudePath")
+        self.claudePath = Self.nonEmpty(savedClaude)
             ?? Provider.claude.defaultRootPath?.path ?? ""
-        self.openclawPath = defaults.string(forKey: "settings.openclawPath") ?? ""
+        self.openclawPath = Self.nonEmpty(savedOpenclaw) ?? ""
     }
 
     func rootPath(for provider: Provider) -> URL? {
@@ -31,32 +36,20 @@ class SettingsStore {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let expanded = NSString(string: trimmed).expandingTildeInPath
-        var isDir: ObjCBool = false
-        guard FileManager.default.fileExists(atPath: expanded, isDirectory: &isDir), isDir.boolValue else {
-            return URL(fileURLWithPath: expanded)
-        }
         return URL(fileURLWithPath: expanded)
     }
 
     func pathExists(for provider: Provider) -> Bool {
-        let raw: String
-        switch provider {
-        case .codex: raw = codexPath
-        case .claude: raw = claudePath
-        case .openclaw: raw = openclawPath
-        }
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return false }
-        let expanded = NSString(string: trimmed).expandingTildeInPath
+        guard let url = rootPath(for: provider) else { return false }
         var isDir: ObjCBool = false
-        return FileManager.default.fileExists(atPath: expanded, isDirectory: &isDir) && isDir.boolValue
+        return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
     }
 
     func resetToDefault(for provider: Provider) {
         switch provider {
         case .codex: codexPath = Provider.codex.defaultRootPath?.path ?? ""
         case .claude: claudePath = Provider.claude.defaultRootPath?.path ?? ""
-        case .openclaw: break // no default to reset to
+        case .openclaw: break
         }
     }
 
@@ -65,5 +58,10 @@ class SettingsStore {
         defaults.set(codexPath, forKey: "settings.codexPath")
         defaults.set(claudePath, forKey: "settings.claudePath")
         defaults.set(openclawPath, forKey: "settings.openclawPath")
+    }
+
+    private static func nonEmpty(_ s: String?) -> String? {
+        guard let s, !s.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return s
     }
 }
