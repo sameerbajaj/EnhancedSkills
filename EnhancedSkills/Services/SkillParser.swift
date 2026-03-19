@@ -39,7 +39,7 @@ struct SkillParser {
         }
     }
 
-    private static func extractFrontmatter(from content: String) -> (String?, String) {
+    static func extractFrontmatter(from content: String) -> (String?, String) {
         var lines = content.components(separatedBy: "\n")
         guard lines.first?.trimmingCharacters(in: .whitespaces) == "---" else {
             return (nil, content)
@@ -58,7 +58,7 @@ struct SkillParser {
         return inFM ? (nil, content) : (fmLines.joined(separator: "\n"), bodyLines.joined(separator: "\n"))
     }
 
-    private static func parseFrontmatter(_ fm: String) -> [String: String] {
+    static func parseFrontmatter(_ fm: String) -> [String: String] {
         var result: [String: String] = [:]
         for line in fm.components(separatedBy: "\n") {
             let parts = line.split(separator: ":", maxSplits: 1)

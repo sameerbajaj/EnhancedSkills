@@ -78,7 +78,7 @@ struct SkillListView: View {
 }
 
 struct HeroHeaderView: View {
-    let state: AppState
+    @Bindable var state: AppState
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
@@ -93,6 +93,23 @@ struct HeroHeaderView: View {
                         .foregroundStyle(DS.Color.textSecondary)
                 }
                 Spacer()
+                Button {
+                    state.showImportSheet = true
+                } label: {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "square.and.arrow.down")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Import")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(DS.Color.accent)
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.vertical, DS.Spacing.sm)
+                    .background(DS.Color.accentLight)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Import skill from GitHub")
                 HStack(spacing: DS.Spacing.xl) {
                     StatBadge(label: "Synced", value: state.syncedCount, color: DS.Color.synced)
                     StatBadge(label: "Needs Sync", value: state.needsSyncCount, color: DS.Color.needsSync)

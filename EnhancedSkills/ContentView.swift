@@ -34,6 +34,12 @@ struct ContentView: View {
             SettingsView(settings: settings, updaterController: updaterController)
                 .frame(minWidth: 600, minHeight: 420)
         }
+        .sheet(isPresented: $appState.showImportSheet) {
+            ImportFromGitHubSheet(settings: settings) {
+                Task { await appState.refresh() }
+            }
+            .frame(minWidth: 520, minHeight: 400)
+        }
     }
 }
 

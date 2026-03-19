@@ -37,6 +37,7 @@ class AppState {
     var evaluationCache: [String: AIEvaluation] = [:]
 
     var showSettings = false
+    var showImportSheet = false
 
     var skillCounts: [Provider: Int] = [:]
 
