@@ -24,10 +24,14 @@ struct ProviderSummaryCard: View {
                 Text(provider.displayName)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(DS.Color.text)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
                 Text(rootExists ? "\(skillCount) skill\(skillCount == 1 ? "" : "s")" : "Not found")
                     .font(.system(size: 11))
                     .foregroundStyle(rootExists ? DS.Color.textSecondary : DS.Color.invalid)
+                    .lineLimit(1)
             }
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
 
             Spacer()
 

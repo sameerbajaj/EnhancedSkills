@@ -17,8 +17,8 @@ class SettingsStore {
             if defaults.object(forKey: enabledKey) != nil {
                 enabled[provider] = defaults.bool(forKey: enabledKey)
             } else {
-                // Default: codex and claude are enabled, others enabled if they have a default path
-                enabled[provider] = provider.defaultRootPath != nil
+                // Default: only codex and claude are enabled
+                enabled[provider] = provider == .codex || provider == .claude
             }
         }
     }

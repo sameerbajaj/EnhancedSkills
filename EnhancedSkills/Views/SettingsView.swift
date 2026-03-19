@@ -3,31 +3,76 @@ import AppKit
 
 struct SettingsView: View {
     @Bindable var settings: SettingsStore
+    @State private var selectedTab: SettingsTab = .core
+
+    enum SettingsTab: String, CaseIterable {
+        case core = "Core"
+        case extensions = "Extensions"
+
+        var providers: [Provider] {
+            switch self {
+            case .core: return [.codex, .claude]
+            case .extensions: return [.openclaw, .gemini, .antigravity]
+            }
+        }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: DS.Spacing.xl) {
-            Text("Provider Skill Paths")
-                .font(.system(size: 18, weight: .bold))
-                .foregroundStyle(DS.Color.text)
+        VStack(spacing: 0) {
+            // Tab bar
+            HStack(spacing: 0) {
+                ForEach(SettingsTab.allCases, id: \.self) { tab in
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) {
+                            selectedTab = tab
+                        }
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(tab.rawValue)
+                                .font(.system(size: 13, weight: selectedTab == tab ? .semibold : .regular))
+                                .foregroundStyle(selectedTab == tab ? DS.Color.accent : DS.Color.textSecondary)
+                                .padding(.horizontal, DS.Spacing.lg)
+                                .padding(.top, DS.Spacing.md)
+                                .padding(.bottom, DS.Spacing.xs)
+                            Rectangle()
+                                .fill(selectedTab == tab ? DS.Color.accent : Color.clear)
+                                .frame(height: 2)
+                                .padding(.horizontal, DS.Spacing.md)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+                Spacer()
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.md)
 
-            Text("Enable providers and configure their skill directories.")
-                .font(.system(size: 13))
-                .foregroundStyle(DS.Color.textSecondary)
+            Divider()
 
-            ScrollView {
-                VStack(spacing: DS.Spacing.lg) {
-                    ForEach(Provider.allCases) { provider in
+            // Tab content — fixed, no scroll
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                VStack(spacing: DS.Spacing.sm) {
+                    ForEach(selectedTab.providers) { provider in
                         ProviderSettingsRow(provider: provider, settings: settings)
                     }
                 }
-            }
 
-            Spacer()
+                Spacer()
+
+                if selectedTab == .extensions {
+                    Text("Extensions are disabled by default. Enable and configure a path to start syncing.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.textTertiary)
+                }
+            }
+            .padding(DS.Spacing.xl)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
-        .padding(DS.Spacing.xxl)
-        .frame(minWidth: 540, minHeight: 420)
+        .frame(width: 520, height: 380)
     }
 }
+
+// MARK: - Provider Settings Row
 
 struct ProviderSettingsRow: View {
     let provider: Provider
@@ -65,7 +110,6 @@ struct ProviderSettingsRow: View {
 
             if isEnabled {
                 HStack(spacing: DS.Spacing.sm) {
-                    // Status dot
                     Circle()
                         .fill(localPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                               ? DS.Color.textTertiary
@@ -98,7 +142,7 @@ struct ProviderSettingsRow: View {
                 }
             }
         }
-        .padding(DS.Spacing.lg)
+        .padding(DS.Spacing.md)
         .background(isEnabled ? DS.Color.surface : DS.Color.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         .overlay(
