@@ -48,6 +48,33 @@ struct TransferService {
         )
     }
 
+    static func syncAll(record: SkillRecord, settings: SettingsStore) throws {
+        guard record.skills.count >= 2 else { return }
+
+        // Find the newest copy by lastModified
+        let sorted = record.skills.values.sorted {
+            ($0.lastModified ?? .distantPast) > ($1.lastModified ?? .distantPast)
+        }
+        guard let newest = sorted.first else { return }
+
+        // Overwrite every other provider's copy with the newest
+        for (provider, _) in record.skills where provider != newest.provider {
+            guard let destRoot = settings.rootPath(for: provider) else { continue }
+            let plan = SkillTransferPlan(
+                skillSlug: record.slug,
+                sourceProvider: newest.provider,
+                destinationProvider: provider,
+                sourcePath: newest.skillPath,
+                destinationPath: destRoot.appendingPathComponent(newest.folderName),
+                sourceFileCount: 0,
+                destinationExists: true,
+                willReplace: true,
+                warnings: []
+            )
+            try execute(plan: plan)
+        }
+    }
+
     static func execute(plan: SkillTransferPlan) throws {
         let fm = FileManager.default
         let destRoot = plan.destinationPath.deletingLastPathComponent()

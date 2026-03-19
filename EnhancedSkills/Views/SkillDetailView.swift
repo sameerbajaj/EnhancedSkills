@@ -73,6 +73,16 @@ struct DetailContent: View {
                             }
                         }
                     }
+
+                    // Keep in Sync toggle
+                    if record.skills.count >= 2 || record.syncEnabled {
+                        Toggle("Keep in Sync", isOn: Binding(
+                            get: { record.syncEnabled },
+                            set: { _ in state.toggleSyncPreference(for: record) }
+                        ))
+                        .toggleStyle(.switch)
+                        .controlSize(.small)
+                    }
                 }
 
                 Divider()
@@ -178,7 +188,41 @@ struct SyncActionsSection: View {
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(DS.Color.textTertiary)
 
-            if missingProviders.isEmpty && record.skills.count >= 2 {
+            // Drift detected — needs sync
+            if record.status == .needsSync {
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    HStack(spacing: DS.Spacing.sm) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(DS.Color.needsSync)
+                        Text("Content has drifted across providers.")
+                            .font(.system(size: 13))
+                            .foregroundStyle(DS.Color.textSecondary)
+                    }
+                    Button {
+                        Task { await state.syncNow(record: record) }
+                    } label: {
+                        HStack {
+                            Image(systemName: "arrow.triangle.2.circlepath")
+                                .font(.system(size: 14))
+                            Text("Sync Now")
+                                .font(.system(size: 14, weight: .semibold))
+                        }
+                        .foregroundStyle(DS.Color.needsSync)
+                        .padding(.horizontal, DS.Spacing.lg)
+                        .padding(.vertical, DS.Spacing.sm)
+                        .background(DS.Color.needsSyncBg)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.needsSync.opacity(0.3), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(state.isSyncing)
+                }
+                .padding(DS.Spacing.lg)
+                .background(DS.Color.needsSyncBg)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            }
+            // All synced
+            else if record.status == .synced && record.skills.count >= 2 {
                 HStack(spacing: DS.Spacing.sm) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(DS.Color.synced)
@@ -189,7 +233,10 @@ struct SyncActionsSection: View {
                 .padding(DS.Spacing.lg)
                 .background(DS.Color.syncedBg)
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-            } else {
+            }
+
+            // Copy to missing providers (always shown if applicable)
+            if !missingProviders.isEmpty {
                 ForEach(missingProviders) { dest in
                     TransferButton(
                         label: "Copy to \(dest.displayName)",
@@ -199,6 +246,15 @@ struct SyncActionsSection: View {
                         state.startTransfer(to: dest)
                     }
                 }
+            }
+
+            if let err = state.syncError {
+                Text(err)
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.invalid)
+                    .padding(DS.Spacing.md)
+                    .background(DS.Color.invalidBg)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
             }
 
             if let err = state.transferError {

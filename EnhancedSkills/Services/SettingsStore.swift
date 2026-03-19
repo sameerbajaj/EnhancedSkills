@@ -100,6 +100,16 @@ class SettingsStore {
         enabledProviders.filter { !path(for: $0).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
+    func syncPreference(for slug: String) -> Bool? {
+        let key = "syncPref.\(slug)"
+        guard UserDefaults.standard.object(forKey: key) != nil else { return nil }
+        return UserDefaults.standard.bool(forKey: key)
+    }
+
+    func setSyncPreference(_ enabled: Bool, for slug: String) {
+        UserDefaults.standard.set(enabled, forKey: "syncPref.\(slug)")
+    }
+
     private func save() {
         let defaults = UserDefaults.standard
         for provider in Provider.allCases {

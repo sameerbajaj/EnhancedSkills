@@ -81,6 +81,7 @@ struct StatusPill: View {
     var fg: Color {
         switch status {
         case .synced: return DS.Color.synced
+        case .needsSync: return DS.Color.needsSync
         case .conflict, .invalid: return DS.Color.invalid
         default:
             // For provider-only statuses, use the provider's badge color
@@ -93,6 +94,7 @@ struct StatusPill: View {
     var bg: Color {
         switch status {
         case .synced: return DS.Color.syncedBg
+        case .needsSync: return DS.Color.needsSyncBg
         case .conflict, .invalid: return DS.Color.invalidBg
         default:
             if let provider = providerFromStatus(status) {

@@ -24,6 +24,8 @@ enum DS {
         static let geminiOnlyBg = SwiftUI.Color(red: 0.26, green: 0.52, blue: 0.96).opacity(0.10)
         static let antigravityOnly = SwiftUI.Color(red: 0.85, green: 0.32, blue: 0.40)
         static let antigravityOnlyBg = SwiftUI.Color(red: 0.85, green: 0.32, blue: 0.40).opacity(0.10)
+        static let needsSync = SwiftUI.Color(red: 0.82, green: 0.52, blue: 0.10)
+        static let needsSyncBg = SwiftUI.Color(red: 0.82, green: 0.52, blue: 0.10).opacity(0.10)
         static let invalid = SwiftUI.Color(red: 0.72, green: 0.14, blue: 0.14)
         static let invalidBg = SwiftUI.Color(red: 0.72, green: 0.14, blue: 0.14).opacity(0.10)
         static let warning = SwiftUI.Color(red: 0.78, green: 0.56, blue: 0.10)

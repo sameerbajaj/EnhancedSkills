@@ -20,6 +20,7 @@ struct DiscoveredSkill: Identifiable, Equatable {
     var hasScripts: Bool
     var hasReferences: Bool
     var lastModified: Date?
+    var contentHash: String?
     var parseStatus: ParseStatus
     var previewExcerpt: String?
     var validationReport: ValidationReport?

@@ -1,11 +1,12 @@
 import Foundation
 
 enum SkillStatus: String, Equatable {
-    case synced, codexOnly, claudeOnly, openclawOnly, geminiOnly, antigravityOnly, conflict, invalid
+    case synced, needsSync, codexOnly, claudeOnly, openclawOnly, geminiOnly, antigravityOnly, conflict, invalid
 
     var displayName: String {
         switch self {
         case .synced: return "Synced"
+        case .needsSync: return "Needs Sync"
         case .codexOnly: return "Codex Only"
         case .claudeOnly: return "Claude Only"
         case .openclawOnly: return "OpenClaw Only"
@@ -34,6 +35,7 @@ struct SkillRecord: Identifiable, Equatable {
     var slug: String
     var skills: [Provider: DiscoveredSkill] = [:]
     var status: SkillStatus
+    var syncEnabled: Bool = false
     var tags: [String]
     var lastModified: Date?
 
@@ -64,6 +66,7 @@ struct SkillRecord: Identifiable, Equatable {
         lhs.displayName == rhs.displayName &&
         lhs.description == rhs.description &&
         lhs.status == rhs.status &&
+        lhs.syncEnabled == rhs.syncEnabled &&
         lhs.totalViolationCount == rhs.totalViolationCount &&
         lhs.skills.keys == rhs.skills.keys &&
         Provider.allCases.allSatisfy { lhs.skills[$0]?.parseStatus == rhs.skills[$0]?.parseStatus }

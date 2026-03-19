@@ -95,7 +95,7 @@ struct HeroHeaderView: View {
                 Spacer()
                 HStack(spacing: DS.Spacing.xl) {
                     StatBadge(label: "Synced", value: state.syncedCount, color: DS.Color.synced)
-                    StatBadge(label: "Needs Sync", value: state.needsSyncCount, color: DS.Color.codexOnly)
+                    StatBadge(label: "Needs Sync", value: state.needsSyncCount, color: DS.Color.needsSync)
                 }
             }
         }
@@ -147,6 +147,26 @@ struct SkillContextMenu: View {
                 } label: {
                     Label("Fix All \(skill.provider.displayName) Issues (\(count))", systemImage: "wrench.fill")
                 }
+            }
+        }
+
+        // Keep in Sync toggle (skills in 2+ providers)
+        if record.skills.count >= 2 {
+            Divider()
+            Button {
+                state.toggleSyncPreference(for: record)
+            } label: {
+                Label(record.syncEnabled ? "Disable Keep in Sync" : "Enable Keep in Sync",
+                      systemImage: "arrow.triangle.2.circlepath.circle")
+            }
+        }
+
+        // Sync Now (when content has drifted)
+        if record.status == .needsSync {
+            Button {
+                Task { await state.syncNow(record: record) }
+            } label: {
+                Label("Sync Now", systemImage: "arrow.triangle.2.circlepath")
             }
         }
 

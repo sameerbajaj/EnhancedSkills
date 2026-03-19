@@ -1,7 +1,7 @@
 import Foundation
 
 struct SkillInventory {
-    static func merge(skillsByProvider: [Provider: [DiscoveredSkill]]) -> [SkillRecord] {
+    static func merge(skillsByProvider: [Provider: [DiscoveredSkill]], settings: SettingsStore? = nil) -> [SkillRecord] {
         var records: [String: SkillRecord] = [:]
 
         for (_, skills) in skillsByProvider {
@@ -25,6 +25,7 @@ struct SkillInventory {
 
         return records.values.map { r -> SkillRecord in
             var rec = r
+            rec.syncEnabled = settings?.syncPreference(for: rec.slug) ?? (rec.skills.count >= 2)
             rec.status = computeStatus(rec)
             return rec
         }.sorted { $0.displayName.lowercased() < $1.displayName.lowercased() }
@@ -41,7 +42,12 @@ struct SkillInventory {
         case 1:
             let provider = r.skills.keys.first!
             return SkillStatus.onlyStatus(for: provider)
-        default: return .synced
+        default:
+            if r.syncEnabled {
+                let hashes = Set(r.skills.values.compactMap(\.contentHash))
+                if hashes.count > 1 { return .needsSync }
+            }
+            return .synced
         }
     }
 

@@ -29,6 +29,8 @@ class AppState {
 
     var fixError: String?
     var isFixing = false
+    var isSyncing = false
+    var syncError: String?
     var recentlyFixedRuleIDs: Set<String> = []
 
     var showSettings = false
@@ -52,7 +54,7 @@ class AppState {
         switch activeFilter {
         case .all: break
         case .needsSync:
-            records = records.filter { $0.skills.count == 1 }
+            records = records.filter { $0.status == .needsSync }
         case .synced:
             records = records.filter { $0.status == .synced }
         case .system:
@@ -72,7 +74,7 @@ class AppState {
     }
 
     var syncedCount: Int { allRecords.filter { $0.status == .synced }.count }
-    var needsSyncCount: Int { allRecords.filter { $0.skills.count == 1 }.count }
+    var needsSyncCount: Int { allRecords.filter { $0.status == .needsSync }.count }
     var issueCount: Int { allRecords.filter { $0.hasGuidelineIssues }.count }
 
     func refresh() async {
@@ -107,7 +109,7 @@ class AppState {
                 }
             }
 
-            let merged = SkillInventory.merge(skillsByProvider: allSkills)
+            let merged = SkillInventory.merge(skillsByProvider: allSkills, settings: settings)
             await MainActor.run {
                 let prevSlug = selectedRecord?.slug
                 allRecords = merged
@@ -122,6 +124,23 @@ class AppState {
         } catch {
             await MainActor.run { errorMessage = error.localizedDescription; isLoading = false }
         }
+    }
+
+    func syncNow(record: SkillRecord) async {
+        await MainActor.run { isSyncing = true; syncError = nil }
+        do {
+            try TransferService.syncAll(record: record, settings: settings)
+            await MainActor.run { isSyncing = false }
+            await refresh()
+        } catch {
+            await MainActor.run { isSyncing = false; syncError = error.localizedDescription }
+        }
+    }
+
+    func toggleSyncPreference(for record: SkillRecord) {
+        let newValue = !record.syncEnabled
+        settings.setSyncPreference(newValue, for: record.slug)
+        Task { await refresh() }
     }
 
     func startTransfer(to destination: Provider) {
