@@ -563,8 +563,7 @@ enum SkillEvaluator {
                 default:
                     output = ""
                 }
-                let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
-                return .success(trimmed.isEmpty ? "Connected (no output)" : "Connected: \(String(trimmed.prefix(50)))")
+                return .success("Connection successful")
             } catch {
                 return .failure(error)
             }
@@ -597,9 +596,7 @@ enum SkillEvaluator {
                     }
                     return .failure(EvaluationError.apiError("HTTP \(httpResponse.statusCode)"))
                 }
-                let apiResponse = try JSONDecoder().decode(AnthropicAPIResponse.self, from: data)
-                let text = apiResponse.content?.first?.text ?? "Connected"
-                return .success("Connected: \(String(text.prefix(50)))")
+                return .success("Connection successful")
             } catch {
                 return .failure(error)
             }
@@ -633,9 +630,7 @@ enum SkillEvaluator {
                     }
                     return .failure(EvaluationError.apiError("HTTP \(httpResponse.statusCode)"))
                 }
-                let apiResponse = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
-                let text = apiResponse.choices?.first?.message.content ?? "Connected"
-                return .success("Connected: \(String(text.prefix(50)))")
+                return .success("Connection successful")
             } catch {
                 return .failure(error)
             }
@@ -667,9 +662,7 @@ enum SkillEvaluator {
                     }
                     return .failure(EvaluationError.apiError("HTTP \(httpResponse.statusCode)"))
                 }
-                let apiResponse = try JSONDecoder().decode(GoogleGenerateResponse.self, from: data)
-                let text = apiResponse.candidates?.first?.content?.parts?.first?.text ?? "Connected"
-                return .success("Connected: \(String(text.prefix(50)))")
+                return .success("Connection successful")
             } catch {
                 return .failure(error)
             }

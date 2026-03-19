@@ -76,7 +76,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(DS.Color.surface)
         }
-        .frame(minWidth: 600, minHeight: 420)
+        .frame(minWidth: 750, minHeight: 580)
     }
 }
 
@@ -237,11 +237,26 @@ private struct AIBackendRow: View {
                         .font(.system(size: 12, weight: .medium))
                         .foregroundStyle(DS.Color.text)
                     Spacer()
+                    Circle()
+                        .fill(apiKeyBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              ? DS.Color.textTertiary : DS.Color.synced)
+                        .frame(width: 8, height: 8)
+                    Text(apiKeyBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                         ? "No key" : "Key set")
+                        .font(.system(size: 11))
+                        .foregroundStyle(apiKeyBinding.wrappedValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                         ? DS.Color.textTertiary : DS.Color.synced)
                 }
-                SecureField(apiKeyPlaceholder, text: apiKeyBinding)
-                    .textFieldStyle(.roundedBorder)
-                    .font(.system(size: 12, design: .monospaced))
-                    .padding(.leading, 24)
+                HStack(spacing: DS.Spacing.sm) {
+                    Text("API Key")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.textSecondary)
+                        .frame(width: 50, alignment: .trailing)
+                    SecureField(apiKeyPlaceholder, text: apiKeyBinding)
+                        .textFieldStyle(.roundedBorder)
+                        .font(.system(size: 12, design: .monospaced))
+                }
+                .padding(.leading, 24)
             }
         }
         .padding(.horizontal, DS.Spacing.md)
