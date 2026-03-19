@@ -25,6 +25,9 @@ class AppState {
     var isTransferring = false
     var transferError: String?
 
+    var fixError: String?
+    var isFixing = false
+
     var codexSkillCount = 0
     var claudeSkillCount = 0
     var codexRootExists = false
@@ -108,6 +111,29 @@ class AppState {
             await refresh()
         } catch {
             await MainActor.run { isTransferring = false; transferError = error.localizedDescription }
+        }
+    }
+
+    func fixViolation(_ ruleID: String, skill: DiscoveredSkill) async {
+        await MainActor.run { isFixing = true; fixError = nil }
+        do {
+            try GuidelinesFixer.fix(ruleID: ruleID, skill: skill)
+            await refresh()
+            await MainActor.run { isFixing = false }
+        } catch {
+            await MainActor.run { fixError = error.localizedDescription; isFixing = false }
+        }
+    }
+
+    func fixAllViolations(for skill: DiscoveredSkill) async {
+        guard let report = skill.validationReport else { return }
+        await MainActor.run { isFixing = true; fixError = nil }
+        do {
+            try GuidelinesFixer.fixAll(violations: report.violations, skill: skill)
+            await refresh()
+            await MainActor.run { isFixing = false }
+        } catch {
+            await MainActor.run { fixError = error.localizedDescription; isFixing = false }
         }
     }
 

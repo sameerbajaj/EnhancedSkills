@@ -92,7 +92,7 @@ struct DetailContent: View {
                 }
 
                 // Guidelines
-                GuidelinesSection(record: record)
+                GuidelinesSection(record: record, state: state)
 
                 Divider()
 
@@ -213,11 +213,12 @@ struct PathLine: View {
 
 struct GuidelinesSection: View {
     let record: SkillRecord
+    @Bindable var state: AppState
 
-    private var reports: [(Provider, ValidationReport)] {
-        var result: [(Provider, ValidationReport)] = []
-        if let r = record.codexSkill?.validationReport { result.append((.codex, r)) }
-        if let r = record.claudeSkill?.validationReport { result.append((.claude, r)) }
+    private var reports: [(Provider, ValidationReport, DiscoveredSkill)] {
+        var result: [(Provider, ValidationReport, DiscoveredSkill)] = []
+        if let skill = record.codexSkill, let r = skill.validationReport { result.append((.codex, r, skill)) }
+        if let skill = record.claudeSkill, let r = skill.validationReport { result.append((.claude, r, skill)) }
         return result
     }
 
@@ -228,16 +229,34 @@ struct GuidelinesSection: View {
                     .font(.system(size: 10, weight: .semibold))
                     .foregroundStyle(DS.Color.textTertiary)
 
-                ForEach(reports, id: \.0) { provider, report in
+                ForEach(reports, id: \.0) { provider, report, skill in
                     VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                        ProviderBadge(provider: provider)
+                        HStack {
+                            ProviderBadge(provider: provider)
+                            Spacer()
+                            if report.autoFixableCount > 0 {
+                                Button {
+                                    Task { await state.fixAllViolations(for: skill) }
+                                } label: {
+                                    Label("Fix All (\(report.autoFixableCount))", systemImage: "wrench.fill")
+                                        .font(.system(size: 11, weight: .medium))
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(DS.Color.synced)
+                                .disabled(state.isFixing)
+                            }
+                        }
 
                         ForEach(report.violations) { violation in
                             GuidelineRow(
                                 title: violation.rule.title,
                                 severity: violation.rule.severity,
                                 fixHint: violation.fixHint,
-                                passed: false
+                                passed: false,
+                                isAutoFixable: violation.isAutoFixable,
+                                onFix: violation.isAutoFixable ? {
+                                    Task { await state.fixViolation(violation.rule.id, skill: skill) }
+                                } : nil
                             )
                         }
 
@@ -246,10 +265,21 @@ struct GuidelinesSection: View {
                                 title: rule.title,
                                 severity: rule.severity,
                                 fixHint: nil,
-                                passed: true
+                                passed: true,
+                                isAutoFixable: false,
+                                onFix: nil
                             )
                         }
                     }
+                }
+
+                if let err = state.fixError {
+                    Text(err)
+                        .font(.system(size: 12))
+                        .foregroundStyle(DS.Color.invalid)
+                        .padding(DS.Spacing.md)
+                        .background(DS.Color.invalidBg)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
                 }
             }
         }
@@ -261,6 +291,8 @@ struct GuidelineRow: View {
     let severity: GuidelineSeverity
     let fixHint: String?
     let passed: Bool
+    var isAutoFixable: Bool = false
+    var onFix: (() -> Void)?
 
     private var iconName: String {
         passed ? "checkmark.circle.fill" : severity.iconName
@@ -284,6 +316,15 @@ struct GuidelineRow: View {
                 Text(title)
                     .font(.system(size: 12, weight: .medium))
                     .foregroundStyle(DS.Color.text)
+                Spacer()
+                if !passed && isAutoFixable, let onFix {
+                    Button(action: onFix) {
+                        Label("Fix", systemImage: "wrench")
+                            .font(.system(size: 11, weight: .medium))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(DS.Color.synced)
+                }
             }
             if let hint = fixHint, !passed {
                 Text(hint)

@@ -32,12 +32,14 @@ struct GuidelineRule: Identifiable, Equatable {
     let detail: String
     let severity: GuidelineSeverity
     let provider: Provider?  // nil = applies to both
+    let isAutoFixable: Bool
 }
 
 struct GuidelineViolation: Identifiable, Equatable {
     var id: String { rule.id }
     let rule: GuidelineRule
     let fixHint: String?
+    var isAutoFixable: Bool { rule.isAutoFixable }
 }
 
 struct ValidationReport: Equatable {
@@ -49,4 +51,5 @@ struct ValidationReport: Equatable {
     var warningCount: Int { violations.filter { $0.rule.severity == .warning }.count }
     var suggestionCount: Int { violations.filter { $0.rule.severity == .suggestion }.count }
     var totalCount: Int { violations.count }
+    var autoFixableCount: Int { violations.filter { $0.isAutoFixable }.count }
 }

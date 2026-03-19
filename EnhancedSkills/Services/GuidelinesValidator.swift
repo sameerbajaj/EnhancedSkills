@@ -10,28 +10,32 @@ struct GuidelinesValidator {
             title: "Frontmatter present",
             detail: "Skill must have valid YAML frontmatter between --- delimiters",
             severity: .error,
-            provider: nil
+            provider: nil,
+            isAutoFixable: true
         ),
         GuidelineRule(
             id: "name-present",
             title: "Name field present",
             detail: "Frontmatter must include a non-empty 'name' field",
             severity: .error,
-            provider: nil
+            provider: nil,
+            isAutoFixable: true
         ),
         GuidelineRule(
             id: "description-present",
             title: "Description field present",
             detail: "Frontmatter must include a non-empty 'description' field",
             severity: .error,
-            provider: nil
+            provider: nil,
+            isAutoFixable: false
         ),
         GuidelineRule(
             id: "body-content",
             title: "Body has meaningful content",
             detail: "Skill body should contain content beyond headings",
             severity: .warning,
-            provider: nil
+            provider: nil,
+            isAutoFixable: false
         ),
     ]
 
@@ -41,14 +45,16 @@ struct GuidelinesValidator {
             title: "allowed-tools field recommended",
             detail: "Claude uses allowed-tools to know which tools the skill can invoke",
             severity: .warning,
-            provider: .claude
+            provider: .claude,
+            isAutoFixable: true
         ),
         GuidelineRule(
             id: "claude-codex-artifacts",
             title: "No Codex-specific fields",
             detail: "Fields like 'version' or 'license' suggest an unmodified Codex copy",
             severity: .suggestion,
-            provider: .claude
+            provider: .claude,
+            isAutoFixable: true
         ),
     ]
 
@@ -58,21 +64,24 @@ struct GuidelinesValidator {
             title: "version field recommended",
             detail: "Codex skills should include a version field",
             severity: .suggestion,
-            provider: .codex
+            provider: .codex,
+            isAutoFixable: true
         ),
         GuidelineRule(
             id: "codex-scripts-consistency",
             title: "Scripts directory consistency",
             detail: "Body references scripts but no scripts/ directory exists",
             severity: .warning,
-            provider: .codex
+            provider: .codex,
+            isAutoFixable: true
         ),
         GuidelineRule(
             id: "codex-claude-artifacts",
             title: "No Claude-specific fields",
             detail: "The 'allowed-tools' field suggests an unmodified Claude copy",
             severity: .suggestion,
-            provider: .codex
+            provider: .codex,
+            isAutoFixable: true
         ),
     ]
 
