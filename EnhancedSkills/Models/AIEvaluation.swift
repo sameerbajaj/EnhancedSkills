@@ -35,11 +35,13 @@ enum EvaluationState: Equatable {
 enum AIBackend: String, CaseIterable {
     case claudeCLI = "claude-cli"
     case codexCLI = "codex-cli"
+    case anthropicAPI = "anthropic-api"
 
     var displayName: String {
         switch self {
         case .claudeCLI: return "Claude CLI"
         case .codexCLI: return "Codex CLI"
+        case .anthropicAPI: return "Anthropic API"
         }
     }
 
@@ -47,6 +49,9 @@ enum AIBackend: String, CaseIterable {
         switch self {
         case .claudeCLI: return "claude"
         case .codexCLI: return "codex"
+        case .anthropicAPI: return ""
         }
     }
+
+    var isCLI: Bool { self != .anthropicAPI }
 }

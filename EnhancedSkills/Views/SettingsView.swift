@@ -84,11 +84,14 @@ struct SettingsView: View {
 
 struct AISettingsContent: View {
     @Bindable var settings: SettingsStore
+    @State private var testResult: String?
+    @State private var testIsError = false
+    @State private var isTesting = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 4) {
-                Text("AI")
+                Text("AI Evaluation")
                     .font(.system(size: 17, weight: .semibold))
                     .foregroundStyle(DS.Color.text)
                 Text("Choose how AI skill evaluation runs in this app.")
@@ -108,23 +111,54 @@ struct AISettingsContent: View {
                     }
                 }
                 .pickerStyle(.segmented)
+                .onChange(of: settings.aiBackend) { _, _ in
+                    testResult = nil
+                }
 
-                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                // Backend status list
+                VStack(alignment: .leading, spacing: DS.Spacing.md) {
                     ForEach(AIBackend.allCases, id: \.self) { backend in
-                        let path = SkillEvaluator.cliPath(for: backend)
-                        HStack(spacing: DS.Spacing.sm) {
-                            Circle()
-                                .fill(path == nil ? DS.Color.invalid : DS.Color.synced)
-                                .frame(width: 8, height: 8)
-                            Text("\(backend.displayName): \(path == nil ? "Not found" : "Available")")
-                                .font(.system(size: 12, weight: .medium))
-                                .foregroundStyle(DS.Color.text)
-                            Spacer()
-                        }
-                        if let path {
-                            Text(path)
-                                .font(.system(size: 11, design: .monospaced))
-                                .foregroundStyle(DS.Color.textTertiary)
+                        VStack(alignment: .leading, spacing: 4) {
+                            if backend.isCLI {
+                                let path = SkillEvaluator.cliPath(for: backend)
+                                HStack(spacing: DS.Spacing.sm) {
+                                    Image(systemName: settings.aiBackend == backend ? "largecircle.fill.circle" : "circle")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(settings.aiBackend == backend ? DS.Color.accent : DS.Color.textTertiary)
+                                    Circle()
+                                        .fill(path == nil ? DS.Color.invalid : DS.Color.synced)
+                                        .frame(width: 8, height: 8)
+                                    Text("\(backend.displayName): \(path == nil ? "Not found" : "Available")")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(DS.Color.text)
+                                    Spacer()
+                                }
+                                if let path {
+                                    Text(path)
+                                        .font(.system(size: 11, design: .monospaced))
+                                        .foregroundStyle(DS.Color.textTertiary)
+                                        .padding(.leading, 32)
+                                }
+                            } else {
+                                // Anthropic API
+                                HStack(spacing: DS.Spacing.sm) {
+                                    Image(systemName: settings.aiBackend == backend ? "largecircle.fill.circle" : "circle")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(settings.aiBackend == backend ? DS.Color.accent : DS.Color.textTertiary)
+                                    Circle()
+                                        .fill(settings.anthropicAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                              ? DS.Color.textTertiary : DS.Color.synced)
+                                        .frame(width: 8, height: 8)
+                                    Text("Anthropic API")
+                                        .font(.system(size: 12, weight: .medium))
+                                        .foregroundStyle(DS.Color.text)
+                                    Spacer()
+                                }
+                                SecureField("sk-ant-...", text: $settings.anthropicAPIKey)
+                                    .textFieldStyle(.roundedBorder)
+                                    .font(.system(size: 12, design: .monospaced))
+                                    .padding(.leading, 32)
+                            }
                         }
                     }
                 }
@@ -135,10 +169,59 @@ struct AISettingsContent: View {
                     RoundedRectangle(cornerRadius: DS.Radius.md)
                         .stroke(DS.Color.borderLight, lineWidth: 1)
                 )
+
+                // Test connection
+                HStack(spacing: DS.Spacing.sm) {
+                    Button {
+                        testConnection()
+                    } label: {
+                        HStack(spacing: 4) {
+                            if isTesting {
+                                ProgressView()
+                                    .controlSize(.small)
+                            }
+                            Text("Test Connection")
+                                .font(.system(size: 13, weight: .medium))
+                        }
+                    }
+                    .disabled(isTesting)
+
+                    if let testResult {
+                        HStack(spacing: 4) {
+                            Image(systemName: testIsError ? "xmark.circle.fill" : "checkmark.circle.fill")
+                                .foregroundStyle(testIsError ? .red : .green)
+                            Text(testResult)
+                                .font(.system(size: 12))
+                                .foregroundStyle(testIsError ? .red : DS.Color.text)
+                                .lineLimit(2)
+                        }
+                    }
+                }
             }
             .padding(.horizontal, DS.Spacing.xl)
             .padding(.top, DS.Spacing.lg)
             .padding(.bottom, DS.Spacing.xl)
+        }
+    }
+
+    private func testConnection() {
+        isTesting = true
+        testResult = nil
+        let backend = settings.aiBackend
+        let apiKey = settings.anthropicAPIKey
+        Task {
+            let result = await SkillEvaluator.testBackend(backend, apiKey: apiKey)
+            await MainActor.run {
+                switch result {
+                case .success(let message):
+                    testResult = message
+                    testIsError = false
+                case .failure(let error):
+                    testResult = error.localizedDescription
+                    testIsError = true
+                }
+                isTesting = false
+            }
         }
     }
 }

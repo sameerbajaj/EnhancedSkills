@@ -8,6 +8,8 @@ enum EvaluationError: LocalizedError {
     case invalidJSON(String)
     case timeout
     case noContent
+    case missingAPIKey
+    case apiError(String)
 
     var errorDescription: String? {
         switch self {
@@ -24,6 +26,10 @@ enum EvaluationError: LocalizedError {
             return "Evaluation timed out after 90 seconds."
         case .noContent:
             return "SKILL.md is empty or could not be read."
+        case .missingAPIKey:
+            return "Anthropic API key is not set. Add it in Settings → AI."
+        case .apiError(let message):
+            return "Anthropic API error: \(message)"
         }
     }
 }
@@ -102,11 +108,39 @@ enum SkillEvaluator {
     Score guide: 9-10 = excellent, 7-8 = good, 5-6 = needs improvement, 3-4 = poor, 1-2 = failing.
     """
 
+    // MARK: - Shell Environment
+
+    private static var cachedShellEnv: [String: String]?
+
+    private static func shellEnvironment() -> [String: String] {
+        if let cached = cachedShellEnv { return cached }
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+        process.arguments = ["-ilc", "env"]
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+        try? process.run()
+        process.waitUntilExit()
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        var env: [String: String] = ProcessInfo.processInfo.environment
+        for line in output.components(separatedBy: "\n") {
+            if let eqIdx = line.firstIndex(of: "=") {
+                let key = String(line[line.startIndex..<eqIdx])
+                let val = String(line[line.index(after: eqIdx)...])
+                env[key] = val
+            }
+        }
+        cachedShellEnv = env
+        return env
+    }
+
     // MARK: - CLI Path Discovery
 
     private static var cachedPaths: [AIBackend: String] = [:]
 
     static func cliPath(for backend: AIBackend) -> String? {
+        guard backend.isCLI else { return nil }
         if let cached = cachedPaths[backend] { return cached }
 
         // Known install locations
@@ -125,6 +159,8 @@ enum SkillEvaluator {
                 "/usr/local/bin/codex",
                 "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/codex"
             ]
+        case .anthropicAPI:
+            return nil
         }
 
         for path in candidates {
@@ -160,11 +196,7 @@ enum SkillEvaluator {
 
     // MARK: - Main Entry Point
 
-    static func evaluate(skill: DiscoveredSkill, backend: AIBackend) async throws -> AIEvaluation {
-        guard let cliPath = cliPath(for: backend) else {
-            throw EvaluationError.cliNotFound(backend.displayName)
-        }
-
+    static func evaluate(skill: DiscoveredSkill, backend: AIBackend, apiKey: String = "") async throws -> AIEvaluation {
         let content: String
         do {
             content = try String(contentsOf: skill.skillMarkdownPath, encoding: .utf8)
@@ -190,9 +222,17 @@ enum SkillEvaluator {
 
         switch backend {
         case .claudeCLI:
+            guard let cliPath = cliPath(for: backend) else {
+                throw EvaluationError.cliNotFound(backend.displayName)
+            }
             return try await runClaudeCLI(cliPath: cliPath, systemPrompt: fullSystemPrompt, userPrompt: userPrompt)
         case .codexCLI:
+            guard let cliPath = cliPath(for: backend) else {
+                throw EvaluationError.cliNotFound(backend.displayName)
+            }
             return try await runCodexCLI(cliPath: cliPath, systemPrompt: fullSystemPrompt, userPrompt: userPrompt)
+        case .anthropicAPI:
+            return try await evaluateWithAPI(systemPrompt: fullSystemPrompt, userPrompt: userPrompt, apiKey: apiKey)
         }
     }
 
@@ -287,6 +327,125 @@ enum SkillEvaluator {
         return String(text[start...endIndex])
     }
 
+    // MARK: - Anthropic API Evaluation
+
+    private struct APIMessage: Encodable {
+        let role: String
+        let content: String
+    }
+
+    private struct APIRequest: Encodable {
+        let model: String
+        let max_tokens: Int
+        let system: String
+        let messages: [APIMessage]
+    }
+
+    private struct APIResponse: Decodable {
+        struct ContentBlock: Decodable {
+            let text: String?
+        }
+        struct APIErrorBody: Decodable {
+            let message: String
+        }
+        let content: [ContentBlock]?
+        let error: APIErrorBody?
+    }
+
+    private static func evaluateWithAPI(systemPrompt: String, userPrompt: String, apiKey: String) async throws -> AIEvaluation {
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { throw EvaluationError.missingAPIKey }
+
+        let body = APIRequest(
+            model: "claude-sonnet-4-20250514",
+            max_tokens: 4096,
+            system: systemPrompt,
+            messages: [APIMessage(role: "user", content: userPrompt)]
+        )
+
+        var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
+        request.httpMethod = "POST"
+        request.setValue(key, forHTTPHeaderField: "x-api-key")
+        request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try JSONEncoder().encode(body)
+        request.timeoutInterval = 90
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            if let apiResp = try? JSONDecoder().decode(APIResponse.self, from: data),
+               let errorMsg = apiResp.error?.message {
+                throw EvaluationError.apiError(errorMsg)
+            }
+            throw EvaluationError.apiError("HTTP \(httpResponse.statusCode)")
+        }
+
+        let apiResponse = try JSONDecoder().decode(APIResponse.self, from: data)
+        guard let text = apiResponse.content?.first?.text else {
+            throw EvaluationError.noContent
+        }
+
+        return try extractEvaluation(from: text)
+    }
+
+    // MARK: - Test Backend
+
+    static func testBackend(_ backend: AIBackend, apiKey: String?) async -> Result<String, Error> {
+        switch backend {
+        case .claudeCLI, .codexCLI:
+            guard let path = cliPath(for: backend) else {
+                return .failure(EvaluationError.cliNotFound(backend.displayName))
+            }
+            do {
+                let output: String
+                if backend == .claudeCLI {
+                    output = try await runProcess(executablePath: path, arguments: ["-p", "Say hello in one word."])
+                } else {
+                    output = try await runProcess(executablePath: path, arguments: ["exec", "Say hello in one word."])
+                }
+                let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+                return .success(trimmed.isEmpty ? "Connected (no output)" : "Connected: \(String(trimmed.prefix(50)))")
+            } catch {
+                return .failure(error)
+            }
+        case .anthropicAPI:
+            let key = (apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else {
+                return .failure(EvaluationError.missingAPIKey)
+            }
+            do {
+                let body = APIRequest(
+                    model: "claude-sonnet-4-20250514",
+                    max_tokens: 32,
+                    system: "You are a helpful assistant.",
+                    messages: [APIMessage(role: "user", content: "Say hello in one word.")]
+                )
+                var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
+                request.httpMethod = "POST"
+                request.setValue(key, forHTTPHeaderField: "x-api-key")
+                request.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
+                request.setValue("application/json", forHTTPHeaderField: "content-type")
+                request.httpBody = try JSONEncoder().encode(body)
+                request.timeoutInterval = 30
+
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                    if let apiResp = try? JSONDecoder().decode(APIResponse.self, from: data),
+                       let errorMsg = apiResp.error?.message {
+                        return .failure(EvaluationError.apiError(errorMsg))
+                    }
+                    return .failure(EvaluationError.apiError("HTTP \(httpResponse.statusCode)"))
+                }
+                let apiResponse = try JSONDecoder().decode(APIResponse.self, from: data)
+                let text = apiResponse.content?.first?.text ?? "Connected"
+                return .success("Connected: \(String(text.prefix(50)))")
+            } catch {
+                return .failure(error)
+            }
+        }
+    }
+
     // MARK: - Process Runner
 
     private static func runProcess(executablePath: String, arguments: [String]) async throws -> String {
@@ -307,6 +466,7 @@ enum SkillEvaluator {
 
             process.executableURL = URL(fileURLWithPath: executablePath)
             process.arguments = arguments
+            process.environment = shellEnvironment()
             process.standardOutput = stdout
             process.standardError = stderr
 

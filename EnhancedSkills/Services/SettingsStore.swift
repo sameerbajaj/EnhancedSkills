@@ -11,6 +11,9 @@ class SettingsStore {
     var aiBackend: AIBackend {
         didSet { UserDefaults.standard.set(aiBackend.rawValue, forKey: "settings.aiBackend") }
     }
+    var anthropicAPIKey: String {
+        didSet { UserDefaults.standard.set(anthropicAPIKey, forKey: "settings.anthropicAPIKey") }
+    }
 
     // Update settings
     var autoCheckForUpdates: Bool {
@@ -37,6 +40,7 @@ class SettingsStore {
         } else {
             aiBackend = .claudeCLI
         }
+        anthropicAPIKey = defaults.string(forKey: "settings.anthropicAPIKey") ?? ""
 
         // Update settings
         if defaults.object(forKey: "settings.autoCheckForUpdates") != nil {
