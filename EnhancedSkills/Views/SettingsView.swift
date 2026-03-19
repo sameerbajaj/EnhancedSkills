@@ -105,64 +105,33 @@ struct AISettingsContent: View {
             Divider()
 
             VStack(alignment: .leading, spacing: DS.Spacing.lg) {
-                Picker("Evaluation Backend", selection: $settings.aiBackend) {
-                    ForEach(AIBackend.allCases, id: \.self) { backend in
-                        Text(backend.displayName).tag(backend)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .onChange(of: settings.aiBackend) { _, _ in
-                    testResult = nil
-                }
+                // Backend rows grouped by vendor
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(Array(AIBackend.vendorGroups.enumerated()), id: \.element.vendor) { groupIndex, group in
+                        if groupIndex > 0 {
+                            Divider().padding(.leading, DS.Spacing.md)
+                        }
 
-                // Backend status list
-                VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                    ForEach(AIBackend.allCases, id: \.self) { backend in
-                        VStack(alignment: .leading, spacing: 4) {
-                            if backend.isCLI {
-                                let path = SkillEvaluator.cliPath(for: backend)
-                                HStack(spacing: DS.Spacing.sm) {
-                                    Image(systemName: settings.aiBackend == backend ? "largecircle.fill.circle" : "circle")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(settings.aiBackend == backend ? DS.Color.accent : DS.Color.textTertiary)
-                                    Circle()
-                                        .fill(path == nil ? DS.Color.invalid : DS.Color.synced)
-                                        .frame(width: 8, height: 8)
-                                    Text("\(backend.displayName): \(path == nil ? "Not found" : "Available")")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(DS.Color.text)
-                                    Spacer()
+                        // Vendor header
+                        Text(group.vendor)
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(DS.Color.textTertiary)
+                            .textCase(.uppercase)
+                            .padding(.horizontal, DS.Spacing.md)
+                            .padding(.top, groupIndex == 0 ? DS.Spacing.md : DS.Spacing.sm)
+                            .padding(.bottom, 4)
+
+                        ForEach(group.backends, id: \.self) { backend in
+                            AIBackendRow(backend: backend, settings: settings)
+                                .contentShape(Rectangle())
+                                .onTapGesture {
+                                    settings.aiBackend = backend
+                                    testResult = nil
                                 }
-                                if let path {
-                                    Text(path)
-                                        .font(.system(size: 11, design: .monospaced))
-                                        .foregroundStyle(DS.Color.textTertiary)
-                                        .padding(.leading, 32)
-                                }
-                            } else {
-                                // Anthropic API
-                                HStack(spacing: DS.Spacing.sm) {
-                                    Image(systemName: settings.aiBackend == backend ? "largecircle.fill.circle" : "circle")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(settings.aiBackend == backend ? DS.Color.accent : DS.Color.textTertiary)
-                                    Circle()
-                                        .fill(settings.anthropicAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                              ? DS.Color.textTertiary : DS.Color.synced)
-                                        .frame(width: 8, height: 8)
-                                    Text("Anthropic API")
-                                        .font(.system(size: 12, weight: .medium))
-                                        .foregroundStyle(DS.Color.text)
-                                    Spacer()
-                                }
-                                SecureField("sk-ant-...", text: $settings.anthropicAPIKey)
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(size: 12, design: .monospaced))
-                                    .padding(.leading, 32)
-                            }
                         }
                     }
+                    .padding(.bottom, DS.Spacing.sm)
                 }
-                .padding(DS.Spacing.md)
                 .background(DS.Color.canvas)
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 .overlay(
@@ -208,7 +177,7 @@ struct AISettingsContent: View {
         isTesting = true
         testResult = nil
         let backend = settings.aiBackend
-        let apiKey = settings.anthropicAPIKey
+        let apiKey = settings.apiKey(for: backend)
         Task {
             let result = await SkillEvaluator.testBackend(backend, apiKey: apiKey)
             await MainActor.run {
@@ -222,6 +191,79 @@ struct AISettingsContent: View {
                 }
                 isTesting = false
             }
+        }
+    }
+}
+
+// MARK: - AI Backend Row
+
+private struct AIBackendRow: View {
+    let backend: AIBackend
+    @Bindable var settings: SettingsStore
+
+    private var isSelected: Bool { settings.aiBackend == backend }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            if backend.isCLI {
+                let path = SkillEvaluator.cliPath(for: backend)
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(isSelected ? DS.Color.accent : DS.Color.textTertiary)
+                    Text(backend.displayName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DS.Color.text)
+                    Spacer()
+                    Circle()
+                        .fill(path == nil ? DS.Color.invalid : DS.Color.synced)
+                        .frame(width: 8, height: 8)
+                    Text(path == nil ? "Not found" : "Available")
+                        .font(.system(size: 11))
+                        .foregroundStyle(path == nil ? DS.Color.invalid : DS.Color.synced)
+                }
+                if let path {
+                    Text(path)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(DS.Color.textTertiary)
+                        .padding(.leading, 24)
+                }
+            } else {
+                HStack(spacing: DS.Spacing.sm) {
+                    Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                        .font(.system(size: 12))
+                        .foregroundStyle(isSelected ? DS.Color.accent : DS.Color.textTertiary)
+                    Text(backend.displayName)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(DS.Color.text)
+                    Spacer()
+                }
+                SecureField(apiKeyPlaceholder, text: apiKeyBinding)
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12, design: .monospaced))
+                    .padding(.leading, 24)
+            }
+        }
+        .padding(.horizontal, DS.Spacing.md)
+        .padding(.vertical, 6)
+        .background(isSelected ? DS.Color.accent.opacity(0.08) : Color.clear)
+    }
+
+    private var apiKeyPlaceholder: String {
+        switch backend {
+        case .anthropicAPI: return "sk-ant-..."
+        case .openAIAPI: return "sk-..."
+        case .googleAPI: return "AIza..."
+        default: return ""
+        }
+    }
+
+    private var apiKeyBinding: Binding<String> {
+        switch backend {
+        case .anthropicAPI: return $settings.anthropicAPIKey
+        case .openAIAPI: return $settings.openAIAPIKey
+        case .googleAPI: return $settings.googleAPIKey
+        default: return .constant("")
         }
     }
 }

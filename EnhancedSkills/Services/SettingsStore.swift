@@ -14,6 +14,20 @@ class SettingsStore {
     var anthropicAPIKey: String {
         didSet { UserDefaults.standard.set(anthropicAPIKey, forKey: "settings.anthropicAPIKey") }
     }
+    var openAIAPIKey: String {
+        didSet { UserDefaults.standard.set(openAIAPIKey, forKey: "settings.openAIAPIKey") }
+    }
+    var googleAPIKey: String {
+        didSet { UserDefaults.standard.set(googleAPIKey, forKey: "settings.googleAPIKey") }
+    }
+
+    func apiKey(for backend: AIBackend) -> String {
+        switch backend {
+        case .claudeCLI, .anthropicAPI: return anthropicAPIKey
+        case .codexCLI, .openAIAPI: return openAIAPIKey
+        case .googleCLI, .googleAPI: return googleAPIKey
+        }
+    }
 
     // Update settings
     var autoCheckForUpdates: Bool {
@@ -41,6 +55,8 @@ class SettingsStore {
             aiBackend = .claudeCLI
         }
         anthropicAPIKey = defaults.string(forKey: "settings.anthropicAPIKey") ?? ""
+        openAIAPIKey = defaults.string(forKey: "settings.openAIAPIKey") ?? ""
+        googleAPIKey = defaults.string(forKey: "settings.googleAPIKey") ?? ""
 
         // Update settings
         if defaults.object(forKey: "settings.autoCheckForUpdates") != nil {

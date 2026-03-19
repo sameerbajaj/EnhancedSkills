@@ -218,7 +218,7 @@ class AppState {
                 evaluationState = .completed(cached)
                 return
             }
-            let result = try await SkillEvaluator.evaluate(skill: skill, backend: settings.aiBackend, apiKey: settings.anthropicAPIKey)
+            let result = try await SkillEvaluator.evaluate(skill: skill, backend: settings.aiBackend, apiKey: settings.apiKey(for: settings.aiBackend))
             if let hash = skill.contentHash {
                 evaluationCache[hash] = result
             }

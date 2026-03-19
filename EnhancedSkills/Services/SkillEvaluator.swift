@@ -14,7 +14,7 @@ enum EvaluationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .cliNotFound(let name):
-            return "\(name) CLI not found. Make sure it is installed and in your PATH."
+            return "\(name) not found. Make sure it is installed and in your PATH."
         case .executionFailed(let code, let stderr):
             let detail = stderr.trimmingCharacters(in: .whitespacesAndNewlines)
             return detail.isEmpty
@@ -27,9 +27,9 @@ enum EvaluationError: LocalizedError {
         case .noContent:
             return "SKILL.md is empty or could not be read."
         case .missingAPIKey:
-            return "Anthropic API key is not set. Add it in Settings → AI."
+            return "API key is not set. Add it in Settings → AI."
         case .apiError(let message):
-            return "Anthropic API error: \(message)"
+            return "API error: \(message)"
         }
     }
 }
@@ -143,12 +143,12 @@ enum SkillEvaluator {
         guard backend.isCLI else { return nil }
         if let cached = cachedPaths[backend] { return cached }
 
-        // Known install locations
+        let home = FileManager.default.homeDirectoryForCurrentUser.path
         let candidates: [String]
         switch backend {
         case .claudeCLI:
             candidates = [
-                "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/claude",
+                "\(home)/.local/bin/claude",
                 "/usr/local/bin/claude",
                 "/opt/homebrew/bin/claude",
                 "/usr/bin/claude"
@@ -157,9 +157,16 @@ enum SkillEvaluator {
             candidates = [
                 "/opt/homebrew/bin/codex",
                 "/usr/local/bin/codex",
-                "\(FileManager.default.homeDirectoryForCurrentUser.path)/.local/bin/codex"
+                "\(home)/.local/bin/codex"
             ]
-        case .anthropicAPI:
+        case .googleCLI:
+            candidates = [
+                "\(home)/.local/bin/gemini",
+                "/opt/homebrew/bin/gemini",
+                "/usr/local/bin/gemini",
+                "/usr/bin/gemini"
+            ]
+        case .anthropicAPI, .openAIAPI, .googleAPI:
             return nil
         }
 
@@ -170,7 +177,6 @@ enum SkillEvaluator {
             }
         }
 
-        // Fall back to searching PATH via `which`
         if let found = runWhich(backend.executableName) {
             cachedPaths[backend] = found
             return found
@@ -208,7 +214,6 @@ enum SkillEvaluator {
             throw EvaluationError.noContent
         }
 
-        // Truncate if extremely long (>5000 words ≈ 35000 chars)
         let truncated = content.count > 35_000 ? String(content.prefix(35_000)) + "\n\n[...truncated]" : content
 
         let providerContext = skill.provider.spec.promptContext
@@ -231,8 +236,17 @@ enum SkillEvaluator {
                 throw EvaluationError.cliNotFound(backend.displayName)
             }
             return try await runCodexCLI(cliPath: cliPath, systemPrompt: fullSystemPrompt, userPrompt: userPrompt)
+        case .googleCLI:
+            guard let cliPath = cliPath(for: backend) else {
+                throw EvaluationError.cliNotFound(backend.displayName)
+            }
+            return try await runGeminiCLI(cliPath: cliPath, systemPrompt: fullSystemPrompt, userPrompt: userPrompt)
         case .anthropicAPI:
-            return try await evaluateWithAPI(systemPrompt: fullSystemPrompt, userPrompt: userPrompt, apiKey: apiKey)
+            return try await evaluateWithAnthropicAPI(systemPrompt: fullSystemPrompt, userPrompt: userPrompt, apiKey: apiKey)
+        case .openAIAPI:
+            return try await evaluateWithOpenAI(systemPrompt: fullSystemPrompt, userPrompt: userPrompt, apiKey: apiKey)
+        case .googleAPI:
+            return try await evaluateWithGoogle(systemPrompt: fullSystemPrompt, userPrompt: userPrompt, apiKey: apiKey)
         }
     }
 
@@ -258,7 +272,6 @@ enum SkillEvaluator {
             ]
         )
 
-        // Two-stage parse: outer envelope, then inner AI JSON
         let decoder = JSONDecoder()
         if let envelopeData = output.data(using: .utf8),
            let envelope = try? decoder.decode(ClaudeJSONEnvelope.self, from: envelopeData),
@@ -266,7 +279,6 @@ enum SkillEvaluator {
             return try extractEvaluation(from: resultText)
         }
 
-        // If not wrapped in an envelope, try direct JSON parse
         return try extractEvaluation(from: output)
     }
 
@@ -276,7 +288,18 @@ enum SkillEvaluator {
         let fullPrompt = systemPrompt + "\n\n---\n\n" + userPrompt
         let output = try await runProcess(
             executablePath: cliPath,
-            arguments: ["exec", fullPrompt]
+            arguments: ["exec", "--skip-git-repo-check", fullPrompt]
+        )
+        return try extractEvaluation(from: output)
+    }
+
+    // MARK: - Gemini CLI Execution
+
+    private static func runGeminiCLI(cliPath: String, systemPrompt: String, userPrompt: String) async throws -> AIEvaluation {
+        let fullPrompt = systemPrompt + "\n\n---\n\n" + userPrompt
+        let output = try await runProcess(
+            executablePath: cliPath,
+            arguments: [fullPrompt]
         )
         return try extractEvaluation(from: output)
     }
@@ -286,13 +309,11 @@ enum SkillEvaluator {
     private static func extractEvaluation(from text: String) throws -> AIEvaluation {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Try direct parse
         if let data = trimmed.data(using: .utf8),
            let evaluation = try? JSONDecoder().decode(AIEvaluation.self, from: data) {
             return evaluation
         }
 
-        // Try to find JSON object within the text (extract first { ... } block)
         if let jsonString = extractJSONObject(from: trimmed),
            let data = jsonString.data(using: .utf8),
            let evaluation = try? JSONDecoder().decode(AIEvaluation.self, from: data) {
@@ -329,19 +350,19 @@ enum SkillEvaluator {
 
     // MARK: - Anthropic API Evaluation
 
-    private struct APIMessage: Encodable {
+    private struct AnthropicAPIMessage: Encodable {
         let role: String
         let content: String
     }
 
-    private struct APIRequest: Encodable {
+    private struct AnthropicAPIRequest: Encodable {
         let model: String
         let max_tokens: Int
         let system: String
-        let messages: [APIMessage]
+        let messages: [AnthropicAPIMessage]
     }
 
-    private struct APIResponse: Decodable {
+    private struct AnthropicAPIResponse: Decodable {
         struct ContentBlock: Decodable {
             let text: String?
         }
@@ -352,15 +373,15 @@ enum SkillEvaluator {
         let error: APIErrorBody?
     }
 
-    private static func evaluateWithAPI(systemPrompt: String, userPrompt: String, apiKey: String) async throws -> AIEvaluation {
+    private static func evaluateWithAnthropicAPI(systemPrompt: String, userPrompt: String, apiKey: String) async throws -> AIEvaluation {
         let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw EvaluationError.missingAPIKey }
 
-        let body = APIRequest(
+        let body = AnthropicAPIRequest(
             model: "claude-sonnet-4-20250514",
             max_tokens: 4096,
             system: systemPrompt,
-            messages: [APIMessage(role: "user", content: userPrompt)]
+            messages: [AnthropicAPIMessage(role: "user", content: userPrompt)]
         )
 
         var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
@@ -374,15 +395,148 @@ enum SkillEvaluator {
         let (data, response) = try await URLSession.shared.data(for: request)
 
         if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-            if let apiResp = try? JSONDecoder().decode(APIResponse.self, from: data),
+            if let apiResp = try? JSONDecoder().decode(AnthropicAPIResponse.self, from: data),
                let errorMsg = apiResp.error?.message {
                 throw EvaluationError.apiError(errorMsg)
             }
             throw EvaluationError.apiError("HTTP \(httpResponse.statusCode)")
         }
 
-        let apiResponse = try JSONDecoder().decode(APIResponse.self, from: data)
+        let apiResponse = try JSONDecoder().decode(AnthropicAPIResponse.self, from: data)
         guard let text = apiResponse.content?.first?.text else {
+            throw EvaluationError.noContent
+        }
+
+        return try extractEvaluation(from: text)
+    }
+
+    // MARK: - OpenAI API Evaluation
+
+    private struct OpenAIChatMessage: Encodable {
+        let role: String
+        let content: String
+    }
+
+    private struct OpenAIChatRequest: Encodable {
+        let model: String
+        let messages: [OpenAIChatMessage]
+        let max_tokens: Int
+    }
+
+    private struct OpenAIChatResponse: Decodable {
+        struct Choice: Decodable {
+            struct Message: Decodable {
+                let content: String?
+            }
+            let message: Message
+        }
+        struct APIError: Decodable {
+            let message: String
+        }
+        let choices: [Choice]?
+        let error: APIError?
+    }
+
+    private static func evaluateWithOpenAI(systemPrompt: String, userPrompt: String, apiKey: String) async throws -> AIEvaluation {
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { throw EvaluationError.missingAPIKey }
+
+        let body = OpenAIChatRequest(
+            model: "gpt-4o",
+            messages: [
+                OpenAIChatMessage(role: "system", content: systemPrompt),
+                OpenAIChatMessage(role: "user", content: userPrompt)
+            ],
+            max_tokens: 4096
+        )
+
+        var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try JSONEncoder().encode(body)
+        request.timeoutInterval = 90
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            if let apiResp = try? JSONDecoder().decode(OpenAIChatResponse.self, from: data),
+               let errorMsg = apiResp.error?.message {
+                throw EvaluationError.apiError(errorMsg)
+            }
+            throw EvaluationError.apiError("HTTP \(httpResponse.statusCode)")
+        }
+
+        let apiResponse = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
+        guard let text = apiResponse.choices?.first?.message.content else {
+            throw EvaluationError.noContent
+        }
+
+        return try extractEvaluation(from: text)
+    }
+
+    // MARK: - Google AI API Evaluation
+
+    private struct GoogleContent: Encodable {
+        struct Part: Encodable {
+            let text: String
+        }
+        let role: String?
+        let parts: [Part]
+    }
+
+    private struct GoogleGenerateRequest: Encodable {
+        let system_instruction: GoogleContent?
+        let contents: [GoogleContent]
+    }
+
+    private struct GoogleGenerateResponse: Decodable {
+        struct Candidate: Decodable {
+            struct Content: Decodable {
+                struct Part: Decodable {
+                    let text: String?
+                }
+                let parts: [Part]?
+            }
+            let content: Content?
+        }
+        struct APIError: Decodable {
+            let message: String
+        }
+        let candidates: [Candidate]?
+        let error: APIError?
+    }
+
+    private static func evaluateWithGoogle(systemPrompt: String, userPrompt: String, apiKey: String) async throws -> AIEvaluation {
+        let key = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !key.isEmpty else { throw EvaluationError.missingAPIKey }
+
+        let body = GoogleGenerateRequest(
+            system_instruction: GoogleContent(role: nil, parts: [.init(text: systemPrompt)]),
+            contents: [GoogleContent(role: "user", parts: [.init(text: userPrompt)])]
+        )
+
+        var urlComponents = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent")!
+        urlComponents.queryItems = [URLQueryItem(name: "key", value: key)]
+
+        var request = URLRequest(url: urlComponents.url!)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "content-type")
+        request.httpBody = try JSONEncoder().encode(body)
+        request.timeoutInterval = 90
+
+        let (data, response) = try await URLSession.shared.data(for: request)
+
+        if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+            if let apiResp = try? JSONDecoder().decode(GoogleGenerateResponse.self, from: data),
+               let errorMsg = apiResp.error?.message {
+                throw EvaluationError.apiError(errorMsg)
+            }
+            throw EvaluationError.apiError("HTTP \(httpResponse.statusCode)")
+        }
+
+        let apiResponse = try JSONDecoder().decode(GoogleGenerateResponse.self, from: data)
+        guard let text = apiResponse.candidates?.first?.content?.parts?.first?.text else {
             throw EvaluationError.noContent
         }
 
@@ -393,33 +547,39 @@ enum SkillEvaluator {
 
     static func testBackend(_ backend: AIBackend, apiKey: String?) async -> Result<String, Error> {
         switch backend {
-        case .claudeCLI, .codexCLI:
+        case .claudeCLI, .codexCLI, .googleCLI:
             guard let path = cliPath(for: backend) else {
                 return .failure(EvaluationError.cliNotFound(backend.displayName))
             }
             do {
                 let output: String
-                if backend == .claudeCLI {
+                switch backend {
+                case .claudeCLI:
                     output = try await runProcess(executablePath: path, arguments: ["-p", "Say hello in one word."])
-                } else {
-                    output = try await runProcess(executablePath: path, arguments: ["exec", "Say hello in one word."])
+                case .codexCLI:
+                    output = try await runProcess(executablePath: path, arguments: ["exec", "--skip-git-repo-check", "Say hello in one word."])
+                case .googleCLI:
+                    output = try await runProcess(executablePath: path, arguments: ["Say hello in one word."])
+                default:
+                    output = ""
                 }
                 let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
                 return .success(trimmed.isEmpty ? "Connected (no output)" : "Connected: \(String(trimmed.prefix(50)))")
             } catch {
                 return .failure(error)
             }
+
         case .anthropicAPI:
             let key = (apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
             guard !key.isEmpty else {
                 return .failure(EvaluationError.missingAPIKey)
             }
             do {
-                let body = APIRequest(
+                let body = AnthropicAPIRequest(
                     model: "claude-sonnet-4-20250514",
                     max_tokens: 32,
                     system: "You are a helpful assistant.",
-                    messages: [APIMessage(role: "user", content: "Say hello in one word.")]
+                    messages: [AnthropicAPIMessage(role: "user", content: "Say hello in one word.")]
                 )
                 var request = URLRequest(url: URL(string: "https://api.anthropic.com/v1/messages")!)
                 request.httpMethod = "POST"
@@ -431,14 +591,84 @@ enum SkillEvaluator {
 
                 let (data, response) = try await URLSession.shared.data(for: request)
                 if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
-                    if let apiResp = try? JSONDecoder().decode(APIResponse.self, from: data),
+                    if let apiResp = try? JSONDecoder().decode(AnthropicAPIResponse.self, from: data),
                        let errorMsg = apiResp.error?.message {
                         return .failure(EvaluationError.apiError(errorMsg))
                     }
                     return .failure(EvaluationError.apiError("HTTP \(httpResponse.statusCode)"))
                 }
-                let apiResponse = try JSONDecoder().decode(APIResponse.self, from: data)
+                let apiResponse = try JSONDecoder().decode(AnthropicAPIResponse.self, from: data)
                 let text = apiResponse.content?.first?.text ?? "Connected"
+                return .success("Connected: \(String(text.prefix(50)))")
+            } catch {
+                return .failure(error)
+            }
+
+        case .openAIAPI:
+            let key = (apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else {
+                return .failure(EvaluationError.missingAPIKey)
+            }
+            do {
+                let body = OpenAIChatRequest(
+                    model: "gpt-4o",
+                    messages: [
+                        OpenAIChatMessage(role: "system", content: "You are a helpful assistant."),
+                        OpenAIChatMessage(role: "user", content: "Say hello in one word.")
+                    ],
+                    max_tokens: 32
+                )
+                var request = URLRequest(url: URL(string: "https://api.openai.com/v1/chat/completions")!)
+                request.httpMethod = "POST"
+                request.setValue("Bearer \(key)", forHTTPHeaderField: "Authorization")
+                request.setValue("application/json", forHTTPHeaderField: "content-type")
+                request.httpBody = try JSONEncoder().encode(body)
+                request.timeoutInterval = 30
+
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                    if let apiResp = try? JSONDecoder().decode(OpenAIChatResponse.self, from: data),
+                       let errorMsg = apiResp.error?.message {
+                        return .failure(EvaluationError.apiError(errorMsg))
+                    }
+                    return .failure(EvaluationError.apiError("HTTP \(httpResponse.statusCode)"))
+                }
+                let apiResponse = try JSONDecoder().decode(OpenAIChatResponse.self, from: data)
+                let text = apiResponse.choices?.first?.message.content ?? "Connected"
+                return .success("Connected: \(String(text.prefix(50)))")
+            } catch {
+                return .failure(error)
+            }
+
+        case .googleAPI:
+            let key = (apiKey ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !key.isEmpty else {
+                return .failure(EvaluationError.missingAPIKey)
+            }
+            do {
+                let body = GoogleGenerateRequest(
+                    system_instruction: nil,
+                    contents: [GoogleContent(role: "user", parts: [.init(text: "Say hello in one word.")])]
+                )
+                var urlComponents = URLComponents(string: "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent")!
+                urlComponents.queryItems = [URLQueryItem(name: "key", value: key)]
+
+                var request = URLRequest(url: urlComponents.url!)
+                request.httpMethod = "POST"
+                request.setValue("application/json", forHTTPHeaderField: "content-type")
+                request.httpBody = try JSONEncoder().encode(body)
+                request.timeoutInterval = 30
+
+                let (data, response) = try await URLSession.shared.data(for: request)
+                if let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode != 200 {
+                    if let apiResp = try? JSONDecoder().decode(GoogleGenerateResponse.self, from: data),
+                       let errorMsg = apiResp.error?.message {
+                        return .failure(EvaluationError.apiError(errorMsg))
+                    }
+                    return .failure(EvaluationError.apiError("HTTP \(httpResponse.statusCode)"))
+                }
+                let apiResponse = try JSONDecoder().decode(GoogleGenerateResponse.self, from: data)
+                let text = apiResponse.candidates?.first?.content?.parts?.first?.text ?? "Connected"
                 return .success("Connected: \(String(text.prefix(50)))")
             } catch {
                 return .failure(error)
@@ -470,7 +700,6 @@ enum SkillEvaluator {
             process.standardOutput = stdout
             process.standardError = stderr
 
-            // Timeout: cancel after 90 seconds
             let timeoutWork = DispatchWorkItem {
                 if process.isRunning {
                     process.terminate()

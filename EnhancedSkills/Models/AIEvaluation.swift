@@ -34,24 +34,55 @@ enum EvaluationState: Equatable {
 
 enum AIBackend: String, CaseIterable {
     case claudeCLI = "claude-cli"
-    case codexCLI = "codex-cli"
     case anthropicAPI = "anthropic-api"
+    case codexCLI = "codex-cli"
+    case openAIAPI = "openai-api"
+    case googleCLI = "google-cli"
+    case googleAPI = "google-api"
 
     var displayName: String {
         switch self {
         case .claudeCLI: return "Claude CLI"
-        case .codexCLI: return "Codex CLI"
         case .anthropicAPI: return "Anthropic API"
+        case .codexCLI: return "Codex CLI"
+        case .openAIAPI: return "OpenAI API"
+        case .googleCLI: return "Gemini CLI"
+        case .googleAPI: return "Google AI API"
         }
     }
+
+    var vendorGroup: String {
+        switch self {
+        case .claudeCLI, .anthropicAPI: return "Anthropic"
+        case .codexCLI, .openAIAPI: return "OpenAI"
+        case .googleCLI, .googleAPI: return "Google"
+        }
+    }
+
+    var isCLI: Bool {
+        switch self {
+        case .claudeCLI, .codexCLI, .googleCLI: return true
+        case .anthropicAPI, .openAIAPI, .googleAPI: return false
+        }
+    }
+
+    var isAPI: Bool { !isCLI }
 
     var executableName: String {
         switch self {
         case .claudeCLI: return "claude"
         case .codexCLI: return "codex"
-        case .anthropicAPI: return ""
+        case .googleCLI: return "gemini"
+        case .anthropicAPI, .openAIAPI, .googleAPI: return ""
         }
     }
 
-    var isCLI: Bool { self != .anthropicAPI }
+    static var vendorGroups: [(vendor: String, backends: [AIBackend])] {
+        let order = ["Anthropic", "OpenAI", "Google"]
+        let grouped = Dictionary(grouping: allCases, by: \.vendorGroup)
+        return order.compactMap { vendor in
+            guard let backends = grouped[vendor] else { return nil }
+            return (vendor: vendor, backends: backends)
+        }
+    }
 }
