@@ -40,7 +40,7 @@ struct CodexProvider: SkillProvider {
                 lastModified: lastMod, parseStatus: .ok, previewExcerpt: nil
             )
             let (fm, body) = SkillParser.parse(skill: &skill)
-            skill.contentHash = ContentHasher.sha256(of: mdPath)
+            skill.contentHash = ContentHasher.sha256(ofString: body)
             skill.validationReport = GuidelinesValidator.validate(skill: skill, frontmatter: fm, body: body)
             return skill
         }

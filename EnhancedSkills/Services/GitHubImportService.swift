@@ -146,7 +146,7 @@ struct GitHubImportService {
         }
 
         let name = frontmatter?.scalars["name"] ?? inferName(from: rawURL)
-        let description = frontmatter?.scalars["description"] ?? ""
+        let description = frontmatter?.scalars["description"] ?? inferDescription(from: body)
         let folderName = inferFolderName(from: name)
 
         return GitHubSkillContent(
@@ -254,6 +254,15 @@ struct GitHubImportService {
                 .localizedCapitalized
         }
         return "Imported Skill"
+    }
+
+    private static func inferDescription(from body: String) -> String {
+        for line in body.components(separatedBy: "\n") {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmed.isEmpty || trimmed.hasPrefix("#") { continue }
+            return trimmed.count > 200 ? String(trimmed.prefix(200)) + "…" : trimmed
+        }
+        return ""
     }
 
     private static func inferFolderName(from name: String) -> String {
