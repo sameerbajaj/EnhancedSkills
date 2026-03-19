@@ -22,8 +22,7 @@ struct TransferService {
     static func buildPlan(for record: SkillRecord, to destination: Provider, destinationRoot: URL?) throws -> SkillTransferPlan {
         // Find a source skill from any other provider
         let source: DiscoveredSkill
-        let candidates = [record.codexSkill, record.claudeSkill, record.openclawSkill]
-            .compactMap { $0 }
+        let candidates = record.skills.values
             .filter { $0.provider != destination }
         guard let s = candidates.first else { throw TransferError.noSource }
         source = s

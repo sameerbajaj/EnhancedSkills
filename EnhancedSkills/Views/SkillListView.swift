@@ -40,7 +40,7 @@ struct SkillListView: View {
                 Spacer()
             } else if state.filteredRecords.isEmpty {
                 if state.allRecords.isEmpty {
-                    EmptyStateView(codexRootExists: state.codexRootExists, claudeRootExists: state.claudeRootExists)
+                    EmptyStateView(codexRootExists: state.settings.pathExists(for: .codex), claudeRootExists: state.settings.pathExists(for: .claude))
                 } else {
                     VStack(spacing: DS.Spacing.md) {
                         Image(systemName: "magnifyingglass")
@@ -121,62 +121,37 @@ struct SkillContextMenu: View {
 
         Divider()
 
-        // Copy to missing providers
-        if record.codexSkill == nil, record.claudeSkill != nil || record.openclawSkill != nil {
-            Button {
-                state.selectedRecord = record
-                state.startTransfer(to: .codex)
-            } label: {
-                Label("Copy to Codex", systemImage: "arrow.right.circle")
-            }
-        }
-        if record.claudeSkill == nil, record.codexSkill != nil || record.openclawSkill != nil {
-            Button {
-                state.selectedRecord = record
-                state.startTransfer(to: .claude)
-            } label: {
-                Label("Copy to Claude", systemImage: "arrow.right.circle")
-            }
-        }
-        if record.openclawSkill == nil && state.openclawRootExists,
-           record.codexSkill != nil || record.claudeSkill != nil {
-            Button {
-                state.selectedRecord = record
-                state.startTransfer(to: .openclaw)
-            } label: {
-                Label("Copy to OpenClaw", systemImage: "arrow.right.circle")
+        // Copy to missing configured providers
+        let missingProviders = state.settings.configuredProviders.filter { record.skills[$0] == nil }
+        if !missingProviders.isEmpty && !record.skills.isEmpty {
+            ForEach(missingProviders) { dest in
+                Button {
+                    state.selectedRecord = record
+                    state.startTransfer(to: dest)
+                } label: {
+                    Label("Copy to \(dest.displayName)", systemImage: "arrow.right.circle")
+                }
             }
         }
 
-        // Fix all violations
-        if record.hasGuidelineIssues {
+        // Fix all violations per provider
+        let fixableSkills = record.skills.values.filter {
+            ($0.validationReport?.autoFixableCount ?? 0) > 0
+        }
+        if !fixableSkills.isEmpty {
             Divider()
-            if let skill = record.codexSkill, let report = skill.validationReport, report.autoFixableCount > 0 {
+            ForEach(fixableSkills.sorted(by: { $0.provider.rawValue < $1.provider.rawValue }), id: \.id) { skill in
+                let count = skill.validationReport?.autoFixableCount ?? 0
                 Button {
                     Task { await state.fixAllViolations(for: skill) }
                 } label: {
-                    Label("Fix All Codex Issues (\(report.autoFixableCount))", systemImage: "wrench.fill")
-                }
-            }
-            if let skill = record.claudeSkill, let report = skill.validationReport, report.autoFixableCount > 0 {
-                Button {
-                    Task { await state.fixAllViolations(for: skill) }
-                } label: {
-                    Label("Fix All Claude Issues (\(report.autoFixableCount))", systemImage: "wrench.fill")
-                }
-            }
-            if let skill = record.openclawSkill, let report = skill.validationReport, report.autoFixableCount > 0 {
-                Button {
-                    Task { await state.fixAllViolations(for: skill) }
-                } label: {
-                    Label("Fix All OpenClaw Issues (\(report.autoFixableCount))", systemImage: "wrench.fill")
+                    Label("Fix All \(skill.provider.displayName) Issues (\(count))", systemImage: "wrench.fill")
                 }
             }
         }
 
-        // Reveal per-provider
-        let providers: [(Provider, DiscoveredSkill?)] = [(.codex, record.codexSkill), (.claude, record.claudeSkill), (.openclaw, record.openclawSkill)]
-        let available = providers.compactMap { p, s in s.map { (p, $0) } }
+        // Reveal per-provider submenu
+        let available = Provider.allCases.compactMap { p in record.skills[p].map { (p, $0) } }
         if available.count > 1 {
             Divider()
             Menu("Reveal in Finder…") {

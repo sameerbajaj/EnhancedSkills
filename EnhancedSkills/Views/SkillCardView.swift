@@ -29,14 +29,10 @@ struct SkillCardView: View {
             }
 
             HStack(spacing: DS.Spacing.sm) {
-                if record.codexSkill != nil {
-                    ProviderBadge(provider: .codex)
-                }
-                if record.claudeSkill != nil {
-                    ProviderBadge(provider: .claude)
-                }
-                if record.openclawSkill != nil {
-                    ProviderBadge(provider: .openclaw)
+                ForEach(Provider.allCases) { provider in
+                    if record.skills[provider] != nil {
+                        ProviderBadge(provider: provider)
+                    }
                 }
                 if record.totalViolationCount > 0 {
                     HStack(spacing: 3) {
@@ -85,19 +81,35 @@ struct StatusPill: View {
     var fg: Color {
         switch status {
         case .synced: return DS.Color.synced
-        case .codexOnly: return DS.Color.codexOnly
-        case .claudeOnly: return DS.Color.claudeOnly
-        case .openclawOnly: return DS.Color.openclawOnly
         case .conflict, .invalid: return DS.Color.invalid
+        default:
+            // For provider-only statuses, use the provider's badge color
+            if let provider = providerFromStatus(status) {
+                return provider.badgeColor
+            }
+            return DS.Color.textSecondary
         }
     }
     var bg: Color {
         switch status {
         case .synced: return DS.Color.syncedBg
-        case .codexOnly: return DS.Color.codexOnlyBg
-        case .claudeOnly: return DS.Color.claudeOnlyBg
-        case .openclawOnly: return DS.Color.openclawOnlyBg
         case .conflict, .invalid: return DS.Color.invalidBg
+        default:
+            if let provider = providerFromStatus(status) {
+                return provider.badgeBgColor
+            }
+            return DS.Color.borderLight
+        }
+    }
+
+    private func providerFromStatus(_ status: SkillStatus) -> Provider? {
+        switch status {
+        case .codexOnly: return .codex
+        case .claudeOnly: return .claude
+        case .openclawOnly: return .openclaw
+        case .geminiOnly: return .gemini
+        case .antigravityOnly: return .antigravity
+        default: return nil
         }
     }
 

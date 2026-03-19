@@ -4,9 +4,7 @@ import AppKit
 enum FilterOption: String, CaseIterable, Equatable {
     case all = "All"
     case needsSync = "Needs Sync"
-    case codexOnly = "Codex Only"
-    case claudeOnly = "Claude Only"
-    case openclawOnly = "OpenClaw Only"
+    case synced = "Synced"
     case system = "System"
     case hasIssues = "Has Issues"
 }
@@ -35,39 +33,28 @@ class AppState {
 
     var showSettings = false
 
-    var codexSkillCount = 0
-    var claudeSkillCount = 0
-    var openclawSkillCount = 0
-    var codexRootExists = false
-    var claudeRootExists = false
-    var openclawRootExists = false
+    var skillCounts: [Provider: Int] = [:]
 
     init(settings: SettingsStore) {
         self.settings = settings
     }
+
+    func skillCount(for provider: Provider) -> Int { skillCounts[provider] ?? 0 }
 
     var filteredRecords: [SkillRecord] {
         var records = allRecords
 
         // Provider card filter (shows all skills belonging to that provider)
         if let pf = providerFilter {
-            switch pf {
-            case .codex: records = records.filter { $0.codexSkill != nil }
-            case .claude: records = records.filter { $0.claudeSkill != nil }
-            case .openclaw: records = records.filter { $0.openclawSkill != nil }
-            }
+            records = records.filter { $0.skills[pf] != nil }
         }
 
         switch activeFilter {
         case .all: break
         case .needsSync:
-            records = records.filter { $0.status == .codexOnly || $0.status == .claudeOnly || $0.status == .openclawOnly }
-        case .codexOnly:
-            records = records.filter { $0.status == .codexOnly }
-        case .claudeOnly:
-            records = records.filter { $0.status == .claudeOnly }
-        case .openclawOnly:
-            records = records.filter { $0.status == .openclawOnly }
+            records = records.filter { $0.skills.count == 1 }
+        case .synced:
+            records = records.filter { $0.status == .synced }
         case .system:
             records = records.filter { $0.codexSkill?.isSystem == true }
         case .hasIssues:
@@ -85,31 +72,46 @@ class AppState {
     }
 
     var syncedCount: Int { allRecords.filter { $0.status == .synced }.count }
-    var needsSyncCount: Int { allRecords.filter { $0.status == .codexOnly || $0.status == .claudeOnly || $0.status == .openclawOnly }.count }
+    var needsSyncCount: Int { allRecords.filter { $0.skills.count == 1 }.count }
     var issueCount: Int { allRecords.filter { $0.hasGuidelineIssues }.count }
 
     func refresh() async {
         await MainActor.run { isLoading = true; errorMessage = nil }
-        let codex = CodexProvider(rootPath: settings.rootPath(for: .codex))
-        let claude = ClaudeProvider(rootPath: settings.rootPath(for: .claude))
-        let openclawRoot = settings.rootPath(for: .openclaw)
-        let openclaw = OpenClawProvider(rootPath: openclawRoot)
+
+        // Build providers for each enabled provider
+        let enabledProviders = settings.enabledProviders
+        var providers: [Provider: SkillProvider] = [:]
+        for p in enabledProviders {
+            switch p {
+            case .codex:
+                providers[p] = CodexProvider(rootPath: settings.rootPath(for: p))
+            case .claude:
+                providers[p] = ClaudeProvider(rootPath: settings.rootPath(for: p))
+            default:
+                providers[p] = GenericProvider(provider: p, rootPath: settings.rootPath(for: p))
+            }
+        }
+
         do {
-            async let cs = codex.discoverSkills()
-            async let cls = claude.discoverSkills()
-            let (codexSkills, claudeSkills) = try await (cs, cls)
-            // Discover OpenClaw separately so failure doesn't block codex/claude
-            let openclawSkills = (try? await openclaw.discoverSkills()) ?? []
-            let merged = SkillInventory.merge(codexSkills: codexSkills, claudeSkills: claudeSkills, openclawSkills: openclawSkills)
+            // Discover all skills concurrently
+            var allSkills: [Provider: [DiscoveredSkill]] = [:]
+            try await withThrowingTaskGroup(of: (Provider, [DiscoveredSkill]).self) { group in
+                for (p, prov) in providers {
+                    group.addTask {
+                        let skills = (try? await prov.discoverSkills()) ?? []
+                        return (p, skills)
+                    }
+                }
+                for try await (provider, skills) in group {
+                    allSkills[provider] = skills
+                }
+            }
+
+            let merged = SkillInventory.merge(skillsByProvider: allSkills)
             await MainActor.run {
                 let prevSlug = selectedRecord?.slug
                 allRecords = merged
-                codexSkillCount = codexSkills.count
-                claudeSkillCount = claudeSkills.count
-                openclawSkillCount = openclawSkills.count
-                codexRootExists = settings.pathExists(for: .codex)
-                claudeRootExists = settings.pathExists(for: .claude)
-                openclawRootExists = settings.pathExists(for: .openclaw)
+                skillCounts = allSkills.mapValues { $0.count }
                 isLoading = false
                 if let slug = prevSlug, let found = merged.first(where: { $0.slug == slug }) {
                     selectedRecord = found

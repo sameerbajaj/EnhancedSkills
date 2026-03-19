@@ -3,6 +3,14 @@ import SwiftUI
 struct SidebarView: View {
     @Bindable var state: AppState
 
+    private var visibleProviders: [Provider] {
+        state.settings.enabledProviders.filter { provider in
+            // Always show if path exists or path is configured
+            let path = state.settings.path(for: provider)
+            return !path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             // App title area
@@ -20,35 +28,15 @@ struct SidebarView: View {
 
             // Provider cards
             VStack(spacing: DS.Spacing.sm) {
-                ProviderSummaryCard(
-                    provider: .codex,
-                    skillCount: state.codexSkillCount,
-                    rootExists: state.codexRootExists,
-                    isActive: state.providerFilter == .codex
-                ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        state.providerFilter = state.providerFilter == .codex ? nil : .codex
-                    }
-                }
-                ProviderSummaryCard(
-                    provider: .claude,
-                    skillCount: state.claudeSkillCount,
-                    rootExists: state.claudeRootExists,
-                    isActive: state.providerFilter == .claude
-                ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        state.providerFilter = state.providerFilter == .claude ? nil : .claude
-                    }
-                }
-                if !state.settings.openclawPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                ForEach(visibleProviders) { provider in
                     ProviderSummaryCard(
-                        provider: .openclaw,
-                        skillCount: state.openclawSkillCount,
-                        rootExists: state.settings.pathExists(for: .openclaw),
-                        isActive: state.providerFilter == .openclaw
+                        provider: provider,
+                        skillCount: state.skillCount(for: provider),
+                        rootExists: state.settings.pathExists(for: provider),
+                        isActive: state.providerFilter == provider
                     ) {
                         withAnimation(.easeInOut(duration: 0.2)) {
-                            state.providerFilter = state.providerFilter == .openclaw ? nil : .openclaw
+                            state.providerFilter = state.providerFilter == provider ? nil : provider
                         }
                     }
                 }

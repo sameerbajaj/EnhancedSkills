@@ -10,49 +10,35 @@ struct SettingsView: View {
                 .font(.system(size: 18, weight: .bold))
                 .foregroundStyle(DS.Color.text)
 
-            Text("Configure the root directory for each provider's skills.")
+            Text("Enable providers and configure their skill directories.")
                 .font(.system(size: 13))
                 .foregroundStyle(DS.Color.textSecondary)
 
-            VStack(spacing: DS.Spacing.lg) {
-                ProviderPathRow(
-                    provider: .codex,
-                    path: $settings.codexPath,
-                    pathExists: settings.pathExists(for: .codex),
-                    hasDefault: true,
-                    onReset: { settings.resetToDefault(for: .codex) }
-                )
-                ProviderPathRow(
-                    provider: .claude,
-                    path: $settings.claudePath,
-                    pathExists: settings.pathExists(for: .claude),
-                    hasDefault: true,
-                    onReset: { settings.resetToDefault(for: .claude) }
-                )
-                ProviderPathRow(
-                    provider: .openclaw,
-                    path: $settings.openclawPath,
-                    pathExists: settings.pathExists(for: .openclaw),
-                    hasDefault: false,
-                    onReset: nil
-                )
+            ScrollView {
+                VStack(spacing: DS.Spacing.lg) {
+                    ForEach(Provider.allCases) { provider in
+                        ProviderSettingsRow(provider: provider, settings: settings)
+                    }
+                }
             }
 
             Spacer()
         }
         .padding(DS.Spacing.xxl)
-        .frame(minWidth: 500, minHeight: 280)
+        .frame(minWidth: 540, minHeight: 420)
     }
 }
 
-struct ProviderPathRow: View {
+struct ProviderSettingsRow: View {
     let provider: Provider
-    @Binding var path: String
-    let pathExists: Bool
-    let hasDefault: Bool
-    let onReset: (() -> Void)?
+    @Bindable var settings: SettingsStore
+    @State private var localPath: String = ""
 
     var body: some View {
+        let isEnabled = settings.isEnabled(provider)
+        let pathExists = settings.pathExists(for: provider)
+        let hasDefault = provider.defaultRootPath != nil
+
         VStack(alignment: .leading, spacing: DS.Spacing.sm) {
             HStack(spacing: DS.Spacing.sm) {
                 Circle()
@@ -66,43 +52,63 @@ struct ProviderPathRow: View {
                 Text(provider.displayName)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundStyle(DS.Color.text)
+
+                Spacer()
+
+                Toggle("", isOn: Binding(
+                    get: { settings.isEnabled(provider) },
+                    set: { settings.setEnabled($0, for: provider) }
+                ))
+                .toggleStyle(.switch)
+                .controlSize(.small)
             }
 
-            HStack(spacing: DS.Spacing.sm) {
-                // Status dot
-                Circle()
-                    .fill(path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                          ? DS.Color.textTertiary
-                          : (pathExists ? DS.Color.synced : DS.Color.invalid))
-                    .frame(width: 8, height: 8)
+            if isEnabled {
+                HStack(spacing: DS.Spacing.sm) {
+                    // Status dot
+                    Circle()
+                        .fill(localPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                              ? DS.Color.textTertiary
+                              : (pathExists ? DS.Color.synced : DS.Color.invalid))
+                        .frame(width: 8, height: 8)
 
-                TextField(
-                    provider == .openclaw ? "Not configured" : "Path to skills directory",
-                    text: $path
-                )
-                .textFieldStyle(.roundedBorder)
-                .font(.system(size: 12, design: .monospaced))
+                    TextField(
+                        hasDefault ? "Path to skills directory" : "Not configured — set path to enable",
+                        text: $localPath
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .font(.system(size: 12, design: .monospaced))
+                    .onSubmit { settings.setPath(localPath, for: provider) }
+                    .onChange(of: localPath) { _, newValue in
+                        settings.setPath(newValue, for: provider)
+                    }
 
-                Button("Browse…") {
-                    browseForFolder()
-                }
-                .controlSize(.small)
-
-                if hasDefault, let onReset {
-                    Button("Reset") {
-                        onReset()
+                    Button("Browse…") {
+                        browseForFolder()
                     }
                     .controlSize(.small)
+
+                    if hasDefault {
+                        Button("Reset") {
+                            settings.resetToDefault(for: provider)
+                            localPath = settings.path(for: provider)
+                        }
+                        .controlSize(.small)
+                    }
                 }
             }
         }
         .padding(DS.Spacing.lg)
-        .background(DS.Color.surface)
+        .background(isEnabled ? DS.Color.surface : DS.Color.canvas)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.md)
                 .stroke(DS.Color.borderLight, lineWidth: 1)
         )
+        .opacity(isEnabled ? 1.0 : 0.7)
+        .onAppear {
+            localPath = settings.path(for: provider)
+        }
     }
 
     private func browseForFolder() {
@@ -112,7 +118,8 @@ struct ProviderPathRow: View {
         panel.allowsMultipleSelection = false
         panel.message = "Select \(provider.displayName) skills directory"
         if panel.runModal() == .OK, let url = panel.url {
-            path = url.path
+            localPath = url.path
+            settings.setPath(url.path, for: provider)
         }
     }
 }

@@ -2,37 +2,48 @@ import Foundation
 
 @Observable
 class SettingsStore {
-    var codexPath: String {
-        didSet { save() }
-    }
-    var claudePath: String {
-        didSet { save() }
-    }
-    var openclawPath: String {
-        didSet { save() }
-    }
+    // Provider paths
+    private var paths: [Provider: String] = [:]
+    // Provider enabled state
+    private var enabled: [Provider: Bool] = [:]
 
     init() {
         let defaults = UserDefaults.standard
-        let savedCodex = defaults.string(forKey: "settings.codexPath")
-        let savedClaude = defaults.string(forKey: "settings.claudePath")
-        let savedOpenclaw = defaults.string(forKey: "settings.openclawPath")
+        for provider in Provider.allCases {
+            let savedPath = defaults.string(forKey: "settings.\(provider.rawValue)Path")
+            paths[provider] = Self.nonEmpty(savedPath) ?? provider.defaultRootPath?.path ?? ""
 
-        // Use saved value only if non-empty; otherwise fall back to default
-        self.codexPath = Self.nonEmpty(savedCodex)
-            ?? Provider.codex.defaultRootPath?.path ?? ""
-        self.claudePath = Self.nonEmpty(savedClaude)
-            ?? Provider.claude.defaultRootPath?.path ?? ""
-        self.openclawPath = Self.nonEmpty(savedOpenclaw) ?? ""
+            let enabledKey = "settings.\(provider.rawValue)Enabled"
+            if defaults.object(forKey: enabledKey) != nil {
+                enabled[provider] = defaults.bool(forKey: enabledKey)
+            } else {
+                // Default: codex and claude are enabled, others enabled if they have a default path
+                enabled[provider] = provider.defaultRootPath != nil
+            }
+        }
+    }
+
+    func path(for provider: Provider) -> String {
+        paths[provider] ?? ""
+    }
+
+    func setPath(_ value: String, for provider: Provider) {
+        paths[provider] = value
+        save()
+    }
+
+    func isEnabled(_ provider: Provider) -> Bool {
+        enabled[provider] ?? false
+    }
+
+    func setEnabled(_ value: Bool, for provider: Provider) {
+        enabled[provider] = value
+        save()
     }
 
     func rootPath(for provider: Provider) -> URL? {
-        let raw: String
-        switch provider {
-        case .codex: raw = codexPath
-        case .claude: raw = claudePath
-        case .openclaw: raw = openclawPath
-        }
+        guard isEnabled(provider) else { return nil }
+        let raw = path(for: provider)
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let expanded = NSString(string: trimmed).expandingTildeInPath
@@ -46,18 +57,26 @@ class SettingsStore {
     }
 
     func resetToDefault(for provider: Provider) {
-        switch provider {
-        case .codex: codexPath = Provider.codex.defaultRootPath?.path ?? ""
-        case .claude: claudePath = Provider.claude.defaultRootPath?.path ?? ""
-        case .openclaw: break
-        }
+        guard let defaultPath = provider.defaultRootPath?.path else { return }
+        paths[provider] = defaultPath
+        save()
+    }
+
+    var enabledProviders: [Provider] {
+        Provider.allCases.filter { isEnabled($0) }
+    }
+
+    /// Providers that are configured (enabled + have a non-empty path)
+    var configuredProviders: [Provider] {
+        enabledProviders.filter { !path(for: $0).trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
     }
 
     private func save() {
         let defaults = UserDefaults.standard
-        defaults.set(codexPath, forKey: "settings.codexPath")
-        defaults.set(claudePath, forKey: "settings.claudePath")
-        defaults.set(openclawPath, forKey: "settings.openclawPath")
+        for provider in Provider.allCases {
+            defaults.set(paths[provider] ?? "", forKey: "settings.\(provider.rawValue)Path")
+            defaults.set(enabled[provider] ?? false, forKey: "settings.\(provider.rawValue)Enabled")
+        }
     }
 
     private static func nonEmpty(_ s: String?) -> String? {

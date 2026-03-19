@@ -97,7 +97,7 @@ struct GuidelinesValidator {
         switch provider {
         case .claude: providerRules = claudeRules
         case .codex: providerRules = codexRules
-        case .openclaw: providerRules = []
+        default: providerRules = [] // OpenClaw, Gemini, Antigravity use common rules only
         }
         let applicableRules = commonRules + providerRules
 

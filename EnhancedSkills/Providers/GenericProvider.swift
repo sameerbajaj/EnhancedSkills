@@ -1,12 +1,14 @@
 import Foundation
 
-struct OpenClawProvider: SkillProvider {
-    let provider: Provider = .openclaw
+/// Generic SKILL.md-based provider that works for any provider type.
+/// Used for OpenClaw, Gemini, Antigravity, and any future providers.
+struct GenericProvider: SkillProvider {
+    let provider: Provider
     let rootPath: URL
 
-    init(rootPath: URL?) {
+    init(provider: Provider, rootPath: URL?) {
+        self.provider = provider
         guard let rootPath else {
-            // Use a path that won't exist so discoverSkills() returns []
             self.rootPath = URL(fileURLWithPath: "/nonexistent")
             return
         }
@@ -38,7 +40,7 @@ struct OpenClawProvider: SkillProvider {
             let lastMod = (try? fm.attributesOfItem(atPath: mdPath.path))?[.modificationDate] as? Date
 
             var skill = DiscoveredSkill(
-                provider: .openclaw, folderName: folderName,
+                provider: provider, folderName: folderName,
                 rootPath: rootPath, skillPath: url, skillMarkdownPath: mdPath,
                 parsedName: nil, parsedDescription: nil,
                 isSystem: false, hasScripts: hasScripts, hasReferences: hasRefs,

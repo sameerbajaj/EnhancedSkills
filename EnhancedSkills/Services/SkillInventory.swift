@@ -1,41 +1,26 @@
 import Foundation
 
 struct SkillInventory {
-    static func merge(codexSkills: [DiscoveredSkill], claudeSkills: [DiscoveredSkill], openclawSkills: [DiscoveredSkill] = []) -> [SkillRecord] {
+    static func merge(skillsByProvider: [Provider: [DiscoveredSkill]]) -> [SkillRecord] {
         var records: [String: SkillRecord] = [:]
 
-        for skill in codexSkills {
-            let slug = normalize(skill.folderName)
-            var r = records[slug] ?? makeEmptyRecord(slug: slug, skill: skill)
-            r.codexSkill = skill
-            r.displayName = skill.parsedName ?? slug
-            r.description = skill.parsedDescription ?? r.description
-            r.lastModified = latestDate(r.lastModified, skill.lastModified)
-            records[slug] = r
-        }
-
-        for skill in claudeSkills {
-            let slug = normalize(skill.folderName)
-            var r = records[slug] ?? makeEmptyRecord(slug: slug, skill: skill)
-            r.claudeSkill = skill
-            if r.codexSkill == nil {
-                r.displayName = skill.parsedName ?? slug
-                r.description = skill.parsedDescription ?? r.description
+        for (_, skills) in skillsByProvider {
+            for skill in skills {
+                let slug = normalize(skill.folderName)
+                var r = records[slug] ?? SkillRecord(
+                    id: slug, displayName: skill.parsedName ?? slug,
+                    description: skill.parsedDescription, slug: slug,
+                    skills: [:], status: .invalid, tags: [], lastModified: nil
+                )
+                r.skills[skill.provider] = skill
+                // First provider to set display name wins
+                if r.skills.count == 1 {
+                    r.displayName = skill.parsedName ?? slug
+                    r.description = skill.parsedDescription ?? r.description
+                }
+                r.lastModified = latestDate(r.lastModified, skill.lastModified)
+                records[slug] = r
             }
-            r.lastModified = latestDate(r.lastModified, skill.lastModified)
-            records[slug] = r
-        }
-
-        for skill in openclawSkills {
-            let slug = normalize(skill.folderName)
-            var r = records[slug] ?? makeEmptyRecord(slug: slug, skill: skill)
-            r.openclawSkill = skill
-            if r.codexSkill == nil && r.claudeSkill == nil {
-                r.displayName = skill.parsedName ?? slug
-                r.description = skill.parsedDescription ?? r.description
-            }
-            r.lastModified = latestDate(r.lastModified, skill.lastModified)
-            records[slug] = r
         }
 
         return records.values.map { r -> SkillRecord in
@@ -49,21 +34,13 @@ struct SkillInventory {
         name.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private static func makeEmptyRecord(slug: String, skill: DiscoveredSkill) -> SkillRecord {
-        SkillRecord(id: slug, displayName: skill.parsedName ?? slug,
-            description: skill.parsedDescription, slug: slug,
-            codexSkill: nil, claudeSkill: nil, openclawSkill: nil,
-            status: .invalid, tags: [], lastModified: nil)
-    }
-
     private static func computeStatus(_ r: SkillRecord) -> SkillStatus {
-        let count = [r.codexSkill != nil, r.claudeSkill != nil, r.openclawSkill != nil].filter { $0 }.count
+        let count = r.skills.count
         switch count {
         case 0: return .invalid
         case 1:
-            if r.codexSkill != nil { return .codexOnly }
-            if r.claudeSkill != nil { return .claudeOnly }
-            return .openclawOnly
+            let provider = r.skills.keys.first!
+            return SkillStatus.onlyStatus(for: provider)
         default: return .synced
         }
     }
