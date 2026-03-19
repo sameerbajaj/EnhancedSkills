@@ -27,6 +27,13 @@ struct SkillRecord: Identifiable, Equatable {
 
     var preferredPreviewSource: DiscoveredSkill? { codexSkill ?? claudeSkill }
 
+    var totalViolationCount: Int {
+        (codexSkill?.validationReport?.totalCount ?? 0) +
+        (claudeSkill?.validationReport?.totalCount ?? 0)
+    }
+
+    var hasGuidelineIssues: Bool { totalViolationCount > 0 }
+
     static func == (lhs: SkillRecord, rhs: SkillRecord) -> Bool {
         lhs.id == rhs.id
     }

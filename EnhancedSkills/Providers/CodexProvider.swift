@@ -39,7 +39,8 @@ struct CodexProvider: SkillProvider {
                 isSystem: isSystem, hasScripts: hasScripts, hasReferences: hasRefs,
                 lastModified: lastMod, parseStatus: .ok, previewExcerpt: nil
             )
-            SkillParser.parse(skill: &skill)
+            let (fm, body) = SkillParser.parse(skill: &skill)
+            skill.validationReport = GuidelinesValidator.validate(skill: skill, frontmatter: fm, body: body)
             return skill
         }
     }

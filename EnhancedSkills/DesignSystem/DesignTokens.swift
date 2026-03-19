@@ -20,6 +20,10 @@ enum DS {
         static let claudeOnlyBg = SwiftUI.Color(red: 0.52, green: 0.20, blue: 0.73).opacity(0.10)
         static let invalid = SwiftUI.Color(red: 0.72, green: 0.14, blue: 0.14)
         static let invalidBg = SwiftUI.Color(red: 0.72, green: 0.14, blue: 0.14).opacity(0.10)
+        static let warning = SwiftUI.Color(red: 0.78, green: 0.56, blue: 0.10)
+        static let warningBg = SwiftUI.Color(red: 0.78, green: 0.56, blue: 0.10).opacity(0.10)
+        static let suggestion = SwiftUI.Color(red: 0.40, green: 0.52, blue: 0.68)
+        static let suggestionBg = SwiftUI.Color(red: 0.40, green: 0.52, blue: 0.68).opacity(0.10)
     }
 
     enum Spacing {

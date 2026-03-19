@@ -91,6 +91,11 @@ struct DetailContent: View {
                     Divider()
                 }
 
+                // Guidelines
+                GuidelinesSection(record: record)
+
+                Divider()
+
                 // Paths
                 VStack(alignment: .leading, spacing: DS.Spacing.md) {
                     Text("LOCATIONS")
@@ -202,6 +207,90 @@ struct PathLine: View {
                 .foregroundStyle(DS.Color.textTertiary)
                 .lineLimit(1)
                 .truncationMode(.middle)
+        }
+    }
+}
+
+struct GuidelinesSection: View {
+    let record: SkillRecord
+
+    private var reports: [(Provider, ValidationReport)] {
+        var result: [(Provider, ValidationReport)] = []
+        if let r = record.codexSkill?.validationReport { result.append((.codex, r)) }
+        if let r = record.claudeSkill?.validationReport { result.append((.claude, r)) }
+        return result
+    }
+
+    var body: some View {
+        if !reports.isEmpty {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                Text("GUIDELINES")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Color.textTertiary)
+
+                ForEach(reports, id: \.0) { provider, report in
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        ProviderBadge(provider: provider)
+
+                        ForEach(report.violations) { violation in
+                            GuidelineRow(
+                                title: violation.rule.title,
+                                severity: violation.rule.severity,
+                                fixHint: violation.fixHint,
+                                passed: false
+                            )
+                        }
+
+                        ForEach(report.passedRules) { rule in
+                            GuidelineRow(
+                                title: rule.title,
+                                severity: rule.severity,
+                                fixHint: nil,
+                                passed: true
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+struct GuidelineRow: View {
+    let title: String
+    let severity: GuidelineSeverity
+    let fixHint: String?
+    let passed: Bool
+
+    private var iconName: String {
+        passed ? "checkmark.circle.fill" : severity.iconName
+    }
+
+    private var iconColor: Color {
+        if passed { return DS.Color.synced }
+        switch severity {
+        case .error: return DS.Color.invalid
+        case .warning: return DS.Color.warning
+        case .suggestion: return DS.Color.suggestion
+        }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: DS.Spacing.sm) {
+                Image(systemName: iconName)
+                    .font(.system(size: 12))
+                    .foregroundStyle(iconColor)
+                Text(title)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(DS.Color.text)
+            }
+            if let hint = fixHint, !passed {
+                Text(hint)
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Color.textSecondary)
+                    .padding(.leading, DS.Spacing.xl)
+            }
         }
     }
 }

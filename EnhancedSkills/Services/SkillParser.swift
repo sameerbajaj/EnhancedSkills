@@ -1,31 +1,42 @@
 import Foundation
 
+struct ParsedFrontmatter: Equatable {
+    let scalars: [String: String]
+    let rawText: String
+    var allKeys: Set<String> { Set(scalars.keys) }
+}
+
 struct SkillParser {
-    static func parse(skill: inout DiscoveredSkill) {
+    @discardableResult
+    static func parse(skill: inout DiscoveredSkill) -> (frontmatter: ParsedFrontmatter?, body: String) {
         let mdPath = skill.skillMarkdownPath
         guard FileManager.default.fileExists(atPath: mdPath.path) else {
             skill.parseStatus = .missingFile
-            return
+            return (nil, "")
         }
         guard let content = try? String(contentsOf: mdPath, encoding: .utf8) else {
             skill.parseStatus = .malformed
-            return
+            return (nil, "")
         }
 
-        let (frontmatter, body) = extractFrontmatter(from: content)
+        let (fmRaw, body) = extractFrontmatter(from: content)
 
-        if let fm = frontmatter {
-            let parsed = parseFrontmatter(fm)
+        if let fmRaw {
+            let parsed = parseFrontmatter(fmRaw)
             skill.parsedName = parsed["name"]
             skill.parsedDescription = parsed["description"]
             skill.parseStatus = .ok
+
+            let fm = ParsedFrontmatter(scalars: parsed, rawText: fmRaw)
+            skill.previewExcerpt = extractPreview(from: body)
+            return (fm, body)
         } else {
             skill.parsedName = nil
             skill.parsedDescription = nil
             skill.parseStatus = .noFrontmatter
+            skill.previewExcerpt = extractPreview(from: body)
+            return (nil, body)
         }
-
-        skill.previewExcerpt = extractPreview(from: body)
     }
 
     private static func extractFrontmatter(from content: String) -> (String?, String) {

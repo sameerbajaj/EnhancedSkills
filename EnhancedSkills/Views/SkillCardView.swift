@@ -35,6 +35,19 @@ struct SkillCardView: View {
                 if record.claudeSkill != nil {
                     ProviderBadge(provider: .claude)
                 }
+                if record.totalViolationCount > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9))
+                        Text("\(record.totalViolationCount)")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(DS.Color.warning)
+                    .padding(.horizontal, DS.Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(DS.Color.warningBg)
+                    .clipShape(Capsule())
+                }
                 Spacer()
                 if let date = record.lastModified {
                     Text(date, style: .relative)
