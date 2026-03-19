@@ -23,19 +23,34 @@ struct SidebarView: View {
                 ProviderSummaryCard(
                     provider: .codex,
                     skillCount: state.codexSkillCount,
-                    rootExists: state.codexRootExists
-                )
+                    rootExists: state.codexRootExists,
+                    isActive: state.providerFilter == .codex
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        state.providerFilter = state.providerFilter == .codex ? nil : .codex
+                    }
+                }
                 ProviderSummaryCard(
                     provider: .claude,
                     skillCount: state.claudeSkillCount,
-                    rootExists: state.claudeRootExists
-                )
+                    rootExists: state.claudeRootExists,
+                    isActive: state.providerFilter == .claude
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        state.providerFilter = state.providerFilter == .claude ? nil : .claude
+                    }
+                }
                 if !state.settings.openclawPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                     ProviderSummaryCard(
                         provider: .openclaw,
                         skillCount: state.openclawSkillCount,
-                        rootExists: state.settings.pathExists(for: .openclaw)
-                    )
+                        rootExists: state.settings.pathExists(for: .openclaw),
+                        isActive: state.providerFilter == .openclaw
+                    ) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            state.providerFilter = state.providerFilter == .openclaw ? nil : .openclaw
+                        }
+                    }
                 }
             }
             .padding(.horizontal, DS.Spacing.lg)
@@ -53,8 +68,9 @@ struct SidebarView: View {
                     .padding(.bottom, DS.Spacing.xs)
 
                 ForEach(FilterOption.allCases, id: \.self) { filter in
-                    FilterRow(filter: filter, isActive: state.activeFilter == filter) {
+                    FilterRow(filter: filter, isActive: state.activeFilter == filter && state.providerFilter == nil) {
                         withAnimation(.easeInOut(duration: 0.2)) {
+                            state.providerFilter = nil
                             state.activeFilter = filter
                         }
                     }
@@ -115,6 +131,7 @@ struct FilterRow: View {
             }
             .padding(.horizontal, DS.Spacing.lg)
             .padding(.vertical, DS.Spacing.sm + 2)
+            .contentShape(Rectangle())
             .background(isActive ? DS.Color.accentLight : Color.clear)
             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
         }

@@ -19,6 +19,7 @@ class AppState {
     var selectedRecord: SkillRecord?
     var searchText: String = ""
     var activeFilter: FilterOption = .all
+    var providerFilter: Provider? = nil
 
     var isLoading = false
     var errorMessage: String?
@@ -47,6 +48,16 @@ class AppState {
 
     var filteredRecords: [SkillRecord] {
         var records = allRecords
+
+        // Provider card filter (shows all skills belonging to that provider)
+        if let pf = providerFilter {
+            switch pf {
+            case .codex: records = records.filter { $0.codexSkill != nil }
+            case .claude: records = records.filter { $0.claudeSkill != nil }
+            case .openclaw: records = records.filter { $0.openclawSkill != nil }
+            }
+        }
+
         switch activeFilter {
         case .all: break
         case .needsSync:

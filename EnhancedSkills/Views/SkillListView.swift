@@ -62,6 +62,9 @@ struct SkillListView: View {
                                         state.selectedRecord = record
                                     }
                                 }
+                                .contextMenu {
+                                    SkillContextMenu(record: record, state: state)
+                                }
                         }
                     }
                     .padding(.horizontal, DS.Spacing.xl)
@@ -99,6 +102,93 @@ struct HeroHeaderView: View {
         .padding(.horizontal, DS.Spacing.xl)
         .padding(.top, DS.Spacing.xxl)
         .padding(.bottom, DS.Spacing.xl)
+    }
+}
+
+struct SkillContextMenu: View {
+    let record: SkillRecord
+    @Bindable var state: AppState
+
+    var body: some View {
+        // Reveal in Finder
+        if let skill = record.preferredPreviewSource {
+            Button {
+                state.revealInFinder(skill)
+            } label: {
+                Label("Reveal in Finder", systemImage: "folder")
+            }
+        }
+
+        Divider()
+
+        // Copy to missing providers
+        if record.codexSkill == nil, record.claudeSkill != nil || record.openclawSkill != nil {
+            Button {
+                state.selectedRecord = record
+                state.startTransfer(to: .codex)
+            } label: {
+                Label("Copy to Codex", systemImage: "arrow.right.circle")
+            }
+        }
+        if record.claudeSkill == nil, record.codexSkill != nil || record.openclawSkill != nil {
+            Button {
+                state.selectedRecord = record
+                state.startTransfer(to: .claude)
+            } label: {
+                Label("Copy to Claude", systemImage: "arrow.right.circle")
+            }
+        }
+        if record.openclawSkill == nil && state.openclawRootExists,
+           record.codexSkill != nil || record.claudeSkill != nil {
+            Button {
+                state.selectedRecord = record
+                state.startTransfer(to: .openclaw)
+            } label: {
+                Label("Copy to OpenClaw", systemImage: "arrow.right.circle")
+            }
+        }
+
+        // Fix all violations
+        if record.hasGuidelineIssues {
+            Divider()
+            if let skill = record.codexSkill, let report = skill.validationReport, report.autoFixableCount > 0 {
+                Button {
+                    Task { await state.fixAllViolations(for: skill) }
+                } label: {
+                    Label("Fix All Codex Issues (\(report.autoFixableCount))", systemImage: "wrench.fill")
+                }
+            }
+            if let skill = record.claudeSkill, let report = skill.validationReport, report.autoFixableCount > 0 {
+                Button {
+                    Task { await state.fixAllViolations(for: skill) }
+                } label: {
+                    Label("Fix All Claude Issues (\(report.autoFixableCount))", systemImage: "wrench.fill")
+                }
+            }
+            if let skill = record.openclawSkill, let report = skill.validationReport, report.autoFixableCount > 0 {
+                Button {
+                    Task { await state.fixAllViolations(for: skill) }
+                } label: {
+                    Label("Fix All OpenClaw Issues (\(report.autoFixableCount))", systemImage: "wrench.fill")
+                }
+            }
+        }
+
+        // Reveal per-provider
+        let providers: [(Provider, DiscoveredSkill?)] = [(.codex, record.codexSkill), (.claude, record.claudeSkill), (.openclaw, record.openclawSkill)]
+        let available = providers.compactMap { p, s in s.map { (p, $0) } }
+        if available.count > 1 {
+            Divider()
+            Menu("Reveal in Finder…") {
+                ForEach(available, id: \.0) { provider, skill in
+                    Button {
+                        state.revealInFinder(skill)
+                    } label: {
+                        Text(provider.displayName)
+                    }
+                }
+            }
+        }
     }
 }
 

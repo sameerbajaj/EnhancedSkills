@@ -4,6 +4,10 @@ struct ProviderSummaryCard: View {
     let provider: Provider
     let skillCount: Int
     let rootExists: Bool
+    var isActive: Bool = false
+    var onTap: (() -> Void)? = nil
+
+    @State private var isHovered = false
 
     var body: some View {
         HStack(spacing: DS.Spacing.md) {
@@ -39,12 +43,19 @@ struct ProviderSummaryCard: View {
         }
         .padding(.horizontal, DS.Spacing.lg)
         .padding(.vertical, DS.Spacing.md)
-        .background(DS.Color.surface)
+        .background(isActive ? provider.badgeBgColor : DS.Color.surface)
         .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
         .overlay(
             RoundedRectangle(cornerRadius: DS.Radius.md)
-                .stroke(DS.Color.borderLight, lineWidth: 1)
+                .stroke(isActive ? provider.badgeColor.opacity(0.4) : DS.Color.borderLight, lineWidth: 1)
         )
         .cardShadow()
+        .contentShape(Rectangle())
+        .scaleEffect(isHovered ? 1.02 : 1.0)
+        .animation(.easeInOut(duration: 0.12), value: isHovered)
+        .onHover { isHovered = $0 }
+        .onTapGesture {
+            onTap?()
+        }
     }
 }
