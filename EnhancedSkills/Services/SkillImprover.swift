@@ -145,22 +145,35 @@ enum SkillImprover {
     static func applyChanges(plan: SkillImprovementPlan) throws {
         let fm = FileManager.default
         let skillDir = plan.skill.skillPath
+        let versionsDir = skillDir.appendingPathComponent(".versions")
 
-        // Create backup
-        let timestamp = ISO8601DateFormatter().string(from: Date())
-            .replacingOccurrences(of: ":", with: "-")
-        let backupName = ".backup-\(timestamp)"
-        let backupDir = skillDir.deletingLastPathComponent().appendingPathComponent(
-            plan.skill.folderName + "-" + backupName
-        )
+        // Load or create version history
+        var history = loadHistory(from: versionsDir)
 
-        try fm.copyItem(at: skillDir, to: backupDir)
+        // Snapshot current files before applying changes
+        // For first improvement, snapshot original as v1; otherwise snapshot current state
+        let snapshotVersion = history.currentVersion == 0 ? 1 : history.currentVersion
+        let snapshotDir = versionsDir.appendingPathComponent("v\(snapshotVersion)")
+
+        if !fm.fileExists(atPath: snapshotDir.path) {
+            try fm.createDirectory(at: snapshotDir, withIntermediateDirectories: true)
+            try snapshotSkillFiles(from: skillDir, to: snapshotDir)
+        }
+
+        if history.currentVersion == 0 {
+            // Record v1 as the original version
+            history.versions.append(SkillVersion(
+                number: 1,
+                timestamp: Date(),
+                appliedSuggestions: ["Original version"]
+            ))
+            history.currentVersion = 1
+        }
 
         // Write each file change
         for change in plan.fileChanges {
             let targetURL = skillDir.appendingPathComponent(change.relativePath)
 
-            // Create parent directories if needed
             let parentDir = targetURL.deletingLastPathComponent()
             if !fm.fileExists(atPath: parentDir.path) {
                 try fm.createDirectory(at: parentDir, withIntermediateDirectories: true)
@@ -168,11 +181,132 @@ enum SkillImprover {
 
             try change.content.write(to: targetURL, atomically: true, encoding: .utf8)
         }
+
+        // Increment version and record
+        let newVersion = history.currentVersion + 1
+        history.versions.append(SkillVersion(
+            number: newVersion,
+            timestamp: Date(),
+            appliedSuggestions: plan.appliedSuggestions
+        ))
+        history.currentVersion = newVersion
+
+        try saveHistory(history, to: versionsDir)
+    }
+
+    // MARK: - Restore Version
+
+    static func restoreVersion(_ versionNumber: Int, for skill: DiscoveredSkill) throws {
+        let fm = FileManager.default
+        let skillDir = skill.skillPath
+        let versionsDir = skillDir.appendingPathComponent(".versions")
+        let snapshotDir = versionsDir.appendingPathComponent("v\(versionNumber)")
+
+        guard fm.fileExists(atPath: snapshotDir.path) else {
+            throw EvaluationError.invalidJSON("Version v\(versionNumber) snapshot not found")
+        }
+
+        var history = loadHistory(from: versionsDir)
+
+        // Snapshot current state as a new version (restore is non-destructive)
+        let currentSnapshotDir = versionsDir.appendingPathComponent("v\(history.currentVersion)")
+        if !fm.fileExists(atPath: currentSnapshotDir.path) {
+            try fm.createDirectory(at: currentSnapshotDir, withIntermediateDirectories: true)
+            try snapshotSkillFiles(from: skillDir, to: currentSnapshotDir)
+        }
+
+        // Copy snapshot files over current skill files
+        let snapshotItems = try fm.contentsOfDirectory(at: snapshotDir, includingPropertiesForKeys: nil)
+        for item in snapshotItems {
+            let dest = skillDir.appendingPathComponent(item.lastPathComponent)
+            if fm.fileExists(atPath: dest.path) {
+                try fm.removeItem(at: dest)
+            }
+            var isDir: ObjCBool = false
+            fm.fileExists(atPath: item.path, isDirectory: &isDir)
+            if isDir.boolValue {
+                try copyDirExcludingVersions(from: item, to: dest)
+            } else {
+                try fm.copyItem(at: item, to: dest)
+            }
+        }
+
+        // Record restore as a new version
+        let newVersion = history.currentVersion + 1
+        history.versions.append(SkillVersion(
+            number: newVersion,
+            timestamp: Date(),
+            appliedSuggestions: ["Restored from v\(versionNumber)"]
+        ))
+        history.currentVersion = newVersion
+
+        try saveHistory(history, to: versionsDir)
+    }
+
+    // MARK: - Version Helpers
+
+    private static func loadHistory(from versionsDir: URL) -> SkillVersionHistory {
+        let historyURL = versionsDir.appendingPathComponent("history.json")
+        if let data = try? Data(contentsOf: historyURL) {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            if let history = try? decoder.decode(SkillVersionHistory.self, from: data) {
+                return history
+            }
+        }
+        return SkillVersionHistory(versions: [], currentVersion: 0)
+    }
+
+    private static func saveHistory(_ history: SkillVersionHistory, to versionsDir: URL) throws {
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: versionsDir.path) {
+            try fm.createDirectory(at: versionsDir, withIntermediateDirectories: true)
+        }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(history)
+        try data.write(to: versionsDir.appendingPathComponent("history.json"))
+    }
+
+    private static func snapshotSkillFiles(from src: URL, to dst: URL) throws {
+        let fm = FileManager.default
+        let items = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
+        for item in items {
+            let name = item.lastPathComponent
+            if name == ".versions" || name == ".DS_Store" { continue }
+            let dest = dst.appendingPathComponent(name)
+            var isDir: ObjCBool = false
+            fm.fileExists(atPath: item.path, isDirectory: &isDir)
+            if isDir.boolValue {
+                try copyDirExcludingVersions(from: item, to: dest)
+            } else {
+                try fm.copyItem(at: item, to: dest)
+            }
+        }
+    }
+
+    private static func copyDirExcludingVersions(from src: URL, to dst: URL) throws {
+        let fm = FileManager.default
+        try fm.createDirectory(at: dst, withIntermediateDirectories: true)
+        let items = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
+        for item in items {
+            let name = item.lastPathComponent
+            if name == ".versions" || name == ".DS_Store" { continue }
+            let dest = dst.appendingPathComponent(name)
+            var isDir: ObjCBool = false
+            fm.fileExists(atPath: item.path, isDirectory: &isDir)
+            if isDir.boolValue {
+                try copyDirExcludingVersions(from: item, to: dest)
+            } else {
+                try fm.copyItem(at: item, to: dest)
+            }
+        }
     }
 
     // MARK: - Build Plan
 
-    static func buildPlan(skill: DiscoveredSkill, fileChanges: [SkillFileChange]) -> SkillImprovementPlan {
+    static func buildPlan(skill: DiscoveredSkill, fileChanges: [SkillFileChange], appliedSuggestions: [String]) -> SkillImprovementPlan {
         let fm = FileManager.default
         var originalContents: [String: String] = [:]
 
@@ -187,7 +321,8 @@ enum SkillImprover {
         return SkillImprovementPlan(
             skill: skill,
             fileChanges: fileChanges,
-            originalContents: originalContents
+            originalContents: originalContents,
+            appliedSuggestions: appliedSuggestions
         )
     }
 }

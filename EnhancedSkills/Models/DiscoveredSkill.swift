@@ -24,6 +24,7 @@ struct DiscoveredSkill: Identifiable, Equatable {
     var parseStatus: ParseStatus
     var previewExcerpt: String?
     var validationReport: ValidationReport?
+    var versionHistory: SkillVersionHistory?
 
     static func == (lhs: DiscoveredSkill, rhs: DiscoveredSkill) -> Bool {
         lhs.id == rhs.id

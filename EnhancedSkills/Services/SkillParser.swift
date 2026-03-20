@@ -21,6 +21,14 @@ struct SkillParser {
 
         let (fmRaw, body) = extractFrontmatter(from: content)
 
+        // Load version history if present
+        let historyURL = skill.skillPath.appendingPathComponent(".versions/history.json")
+        if let historyData = try? Data(contentsOf: historyURL) {
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            skill.versionHistory = try? decoder.decode(SkillVersionHistory.self, from: historyData)
+        }
+
         if let fmRaw {
             let parsed = parseFrontmatter(fmRaw)
             skill.parsedName = parsed["name"]

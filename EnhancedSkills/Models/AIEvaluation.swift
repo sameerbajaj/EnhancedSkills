@@ -43,6 +43,21 @@ struct SkillImprovementPlan: Equatable {
     let skill: DiscoveredSkill
     let fileChanges: [SkillFileChange]
     let originalContents: [String: String]  // relativePath -> original content
+    let appliedSuggestions: [String]
+}
+
+// MARK: - Skill Versioning
+
+struct SkillVersion: Codable, Identifiable, Equatable {
+    var id: Int { number }
+    let number: Int
+    let timestamp: Date
+    let appliedSuggestions: [String]
+}
+
+struct SkillVersionHistory: Codable, Equatable {
+    var versions: [SkillVersion]
+    var currentVersion: Int
 }
 
 enum ImprovementState: Equatable {

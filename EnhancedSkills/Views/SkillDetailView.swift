@@ -47,9 +47,22 @@ struct DetailContent: View {
                         }
                     }
 
-                    Text(record.displayName)
-                        .font(.system(size: 28, weight: .black))
-                        .foregroundStyle(DS.Color.text)
+                    HStack(spacing: DS.Spacing.sm) {
+                        Text(record.displayName)
+                            .font(.system(size: 28, weight: .black))
+                            .foregroundStyle(DS.Color.text)
+
+                        if let history = record.preferredPreviewSource?.versionHistory,
+                           history.currentVersion > 0 {
+                            Text("v\(history.currentVersion)")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(DS.Color.accent)
+                                .padding(.horizontal, DS.Spacing.sm)
+                                .padding(.vertical, 2)
+                                .background(DS.Color.accent.opacity(0.12))
+                                .clipShape(Capsule())
+                        }
+                    }
 
                     if let desc = record.description, !desc.isEmpty {
                         Text(desc)
@@ -72,6 +85,71 @@ struct DetailContent: View {
                                     .buttonStyle(.plain)
                                 }
                             }
+                        }
+                    }
+
+                    // Version history
+                    if let skill = record.preferredPreviewSource,
+                       let history = skill.versionHistory,
+                       history.versions.count > 1 {
+                        DisclosureGroup {
+                            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                                ForEach(history.versions.sorted(by: { $0.number > $1.number })) { version in
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 2) {
+                                            HStack(spacing: DS.Spacing.xs) {
+                                                Text("v\(version.number)")
+                                                    .font(.system(size: 11, weight: .semibold))
+                                                    .foregroundStyle(
+                                                        version.number == history.currentVersion
+                                                            ? DS.Color.accent
+                                                            : DS.Color.text
+                                                    )
+                                                if version.number == history.currentVersion {
+                                                    Text("current")
+                                                        .font(.system(size: 9, weight: .medium))
+                                                        .foregroundStyle(DS.Color.accent)
+                                                        .padding(.horizontal, 4)
+                                                        .padding(.vertical, 1)
+                                                        .background(DS.Color.accent.opacity(0.12))
+                                                        .clipShape(Capsule())
+                                                }
+                                            }
+                                            Text(version.timestamp, style: .date)
+                                                .font(.system(size: 10))
+                                                .foregroundStyle(DS.Color.textTertiary)
+                                            ForEach(version.appliedSuggestions, id: \.self) { suggestion in
+                                                Text(suggestion)
+                                                    .font(.system(size: 10))
+                                                    .foregroundStyle(DS.Color.textSecondary)
+                                                    .lineLimit(1)
+                                            }
+                                        }
+                                        Spacer()
+                                        if version.number != history.currentVersion {
+                                            Button {
+                                                Task { await state.restoreVersion(version.number, for: skill) }
+                                            } label: {
+                                                Text("Restore")
+                                                    .font(.system(size: 10, weight: .medium))
+                                                    .foregroundStyle(DS.Color.accent)
+                                            }
+                                            .buttonStyle(.plain)
+                                        }
+                                    }
+                                    .padding(DS.Spacing.sm)
+                                    .background(
+                                        version.number == history.currentVersion
+                                            ? DS.Color.accent.opacity(0.05)
+                                            : Color.clear
+                                    )
+                                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                                }
+                            }
+                        } label: {
+                            Text("VERSION HISTORY")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(DS.Color.textTertiary)
                         }
                     }
 
@@ -704,9 +782,15 @@ struct AIEvaluationResultView: View {
                             HStack(spacing: DS.Spacing.xs) {
                                 Image(systemName: "checkmark.circle.fill")
                                     .foregroundStyle(DS.Color.synced)
-                                Text("Changes applied")
-                                    .font(.system(size: 11))
-                                    .foregroundStyle(DS.Color.synced)
+                                if let v = record.preferredPreviewSource?.versionHistory?.currentVersion, v > 0 {
+                                    Text("Changes applied — v\(v)")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(DS.Color.synced)
+                                } else {
+                                    Text("Changes applied")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(DS.Color.synced)
+                                }
                             }
                         }
 

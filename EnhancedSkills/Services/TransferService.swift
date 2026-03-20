@@ -97,7 +97,8 @@ struct TransferService {
         try fm.createDirectory(at: dst, withIntermediateDirectories: true)
         let items = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
         for item in items {
-            if item.lastPathComponent == ".DS_Store" { continue }
+            let name = item.lastPathComponent
+            if name == ".DS_Store" || name == ".versions" { continue }
             let dest = dst.appendingPathComponent(item.lastPathComponent)
             var isDir: ObjCBool = false
             fm.fileExists(atPath: item.path, isDirectory: &isDir)

@@ -35,6 +35,7 @@ class AppState {
 
     var evaluationState: EvaluationState = .idle
     var evaluationCache: [String: AIEvaluation] = [:]
+    var evaluatingSkillSlugs: Set<String> = []
 
     var improvementState: ImprovementState = .idle
     var selectedSuggestionIndices: Set<Int> = []
@@ -217,19 +218,30 @@ class AppState {
     }
 
     func evaluateSkill(_ skill: DiscoveredSkill) async {
+        let slug = selectedRecord?.slug ?? skill.folderName
+        evaluatingSkillSlugs.insert(slug)
         evaluationState = .evaluating
         do {
             if let hash = skill.contentHash, let cached = evaluationCache[hash] {
-                evaluationState = .completed(cached)
+                evaluatingSkillSlugs.remove(slug)
+                if selectedRecord?.slug == slug {
+                    evaluationState = .completed(cached)
+                }
                 return
             }
             let result = try await SkillEvaluator.evaluate(skill: skill, backend: settings.aiBackend, apiKey: settings.apiKey(for: settings.aiBackend))
             if let hash = skill.contentHash {
                 evaluationCache[hash] = result
             }
-            evaluationState = .completed(result)
+            evaluatingSkillSlugs.remove(slug)
+            if selectedRecord?.slug == slug {
+                evaluationState = .completed(result)
+            }
         } catch {
-            evaluationState = .failed(error.localizedDescription)
+            evaluatingSkillSlugs.remove(slug)
+            if selectedRecord?.slug == slug {
+                evaluationState = .failed(error.localizedDescription)
+            }
         }
     }
 
@@ -262,6 +274,9 @@ class AppState {
             evaluationState = .completed(cached)
             // Restore saved suggestion selections
             selectedSuggestionIndices = selectedSuggestionsCache[record.slug] ?? []
+        } else if evaluatingSkillSlugs.contains(record.slug) {
+            evaluationState = .evaluating
+            selectedSuggestionIndices = []
         } else {
             evaluationState = .idle
             selectedSuggestionIndices = []
@@ -291,7 +306,7 @@ class AppState {
                 backend: settings.aiBackend,
                 apiKey: settings.apiKey(for: settings.aiBackend)
             )
-            let plan = SkillImprover.buildPlan(skill: skill, fileChanges: fileChanges)
+            let plan = SkillImprover.buildPlan(skill: skill, fileChanges: fileChanges, appliedSuggestions: selected)
             await MainActor.run { improvementState = .previewing(plan) }
         } catch {
             await MainActor.run { improvementState = .failed(error.localizedDescription) }
@@ -320,5 +335,18 @@ class AppState {
 
     func cancelImprovements() {
         improvementState = .idle
+    }
+
+    func restoreVersion(_ versionNumber: Int, for skill: DiscoveredSkill) async {
+        do {
+            try SkillImprover.restoreVersion(versionNumber, for: skill)
+            if let hash = skill.contentHash {
+                evaluationCache.removeValue(forKey: hash)
+            }
+            await MainActor.run { evaluationState = .idle }
+            await refresh()
+        } catch {
+            await MainActor.run { improvementState = .failed(error.localizedDescription) }
+        }
     }
 }

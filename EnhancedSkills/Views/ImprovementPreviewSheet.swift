@@ -48,9 +48,15 @@ struct ImprovementPreviewSheet: View {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.system(size: 12))
                     .foregroundStyle(DS.Color.textTertiary)
-                Text("A backup will be created before applying changes.")
-                    .font(.system(size: 11))
-                    .foregroundStyle(DS.Color.textTertiary)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Current version will be saved before applying.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.textTertiary)
+                    let nextVersion = (plan.skill.versionHistory?.currentVersion ?? 0) + 1
+                    Text("This will create v\(nextVersion)")
+                        .font(.system(size: 10, weight: .medium))
+                        .foregroundStyle(DS.Color.accent)
+                }
 
                 Spacer()
 
