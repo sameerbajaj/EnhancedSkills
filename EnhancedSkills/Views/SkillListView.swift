@@ -79,6 +79,7 @@ struct SkillListView: View {
 
 struct HeroHeaderView: View {
     @Bindable var state: AppState
+    @State private var showCopiedFeedback = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
@@ -93,6 +94,46 @@ struct HeroHeaderView: View {
                         .foregroundStyle(DS.Color.textSecondary)
                 }
                 Spacer()
+                Button {
+                    state.copySkillsSummaryToClipboard()
+                    showCopiedFeedback = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        showCopiedFeedback = false
+                    }
+                } label: {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text(showCopiedFeedback ? "Copied!" : "Share")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(DS.Color.accent)
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.vertical, DS.Spacing.sm)
+                    .background(DS.Color.accentLight)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(state.allRecords.isEmpty)
+                .help("Copy skills summary to clipboard")
+                Button {
+                    state.exportSkillsAsZip()
+                } label: {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "archivebox")
+                            .font(.system(size: 12, weight: .semibold))
+                        Text("Export")
+                            .font(.system(size: 12, weight: .semibold))
+                    }
+                    .foregroundStyle(DS.Color.accent)
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.vertical, DS.Spacing.sm)
+                    .background(DS.Color.accentLight)
+                    .clipShape(Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(state.allRecords.isEmpty || state.isExporting)
+                .help("Export all skills as zip")
                 Button {
                     state.showImportSheet = true
                 } label: {

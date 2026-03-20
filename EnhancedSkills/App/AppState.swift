@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 
 enum FilterOption: String, CaseIterable, Equatable {
     case all = "All"
@@ -43,6 +44,9 @@ class AppState {
 
     var showSettings = false
     var showImportSheet = false
+
+    var isExporting = false
+    var exportError: String?
 
     var skillCounts: [Provider: Int] = [:]
 
@@ -335,6 +339,70 @@ class AppState {
 
     func cancelImprovements() {
         improvementState = .idle
+    }
+
+    func copySkillsSummaryToClipboard() {
+        let sorted = allRecords.sorted { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        var lines = ["I have \(sorted.count) AI Skills:", ""]
+        for record in sorted {
+            let providers = record.skills.keys.sorted(by: { $0.rawValue < $1.rawValue }).map(\.displayName)
+            let providerList = "[\(providers.joined(separator: ", "))]"
+            let desc = record.description ?? "No description"
+            lines.append("- \(record.displayName): \(desc) \(providerList)")
+        }
+        let text = lines.joined(separator: "\n")
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(text, forType: .string)
+    }
+
+    func exportSkillsAsZip() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "skills-export.zip"
+        panel.allowedContentTypes = [UTType.zip]
+        panel.canCreateDirectories = true
+
+        guard panel.runModal() == .OK, let destURL = panel.url else { return }
+
+        Task {
+            await MainActor.run { isExporting = true; exportError = nil }
+            do {
+                let fm = FileManager.default
+                let tempDir = fm.temporaryDirectory.appendingPathComponent("skills-export-\(UUID().uuidString)")
+                try fm.createDirectory(at: tempDir, withIntermediateDirectories: true)
+
+                for record in allRecords {
+                    guard let skill = record.preferredPreviewSource else { continue }
+                    let dest = tempDir.appendingPathComponent(record.slug)
+                    try fm.copyItem(at: skill.skillPath, to: dest)
+                }
+
+                // Remove existing file if needed
+                if fm.fileExists(atPath: destURL.path) {
+                    try fm.removeItem(at: destURL)
+                }
+
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/bin/ditto")
+                process.arguments = ["-c", "-k", "--sequesterRsrc", tempDir.path, destURL.path]
+                try process.run()
+                process.waitUntilExit()
+
+                guard process.terminationStatus == 0 else {
+                    throw NSError(domain: "ExportError", code: Int(process.terminationStatus),
+                                  userInfo: [NSLocalizedDescriptionKey: "ditto failed with exit code \(process.terminationStatus)"])
+                }
+
+                try? fm.removeItem(at: tempDir)
+
+                await MainActor.run {
+                    isExporting = false
+                    NSWorkspace.shared.activateFileViewerSelecting([destURL])
+                }
+            } catch {
+                await MainActor.run { isExporting = false; exportError = error.localizedDescription }
+            }
+        }
     }
 
     func restoreVersion(_ versionNumber: Int, for skill: DiscoveredSkill) async {
