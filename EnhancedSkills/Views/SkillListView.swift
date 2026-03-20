@@ -27,10 +27,15 @@ struct SkillListView: View {
                     .frame(height: 16)
 
                 Menu {
-                    Picker("Sort", selection: $state.sortOrder) {
-                        ForEach(SkillSortOrder.allCases, id: \.self) { order in
-                            Label(order.rawValue, systemImage: order.icon)
-                                .tag(order)
+                    ForEach(SkillSortOrder.allCases, id: \.self) { order in
+                        Button {
+                            state.sortOrder = order
+                        } label: {
+                            if state.sortOrder == order {
+                                Label(order.rawValue, systemImage: "checkmark")
+                            } else {
+                                Text(order.rawValue)
+                            }
                         }
                     }
                 } label: {

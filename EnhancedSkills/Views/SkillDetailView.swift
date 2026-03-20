@@ -34,6 +34,26 @@ struct DetailContent: View {
                 VStack(alignment: .leading, spacing: DS.Spacing.md) {
                     HStack {
                         StatusPill(status: record.status)
+                        if record.status == .needsSync {
+                            Button {
+                                Task { await state.syncNow(record: record) }
+                            } label: {
+                                HStack(spacing: DS.Spacing.xs) {
+                                    Image(systemName: "arrow.triangle.2.circlepath")
+                                        .font(.system(size: 11))
+                                    Text("Sync Now")
+                                        .font(.system(size: 11, weight: .semibold))
+                                }
+                                .foregroundStyle(DS.Color.needsSync)
+                                .padding(.horizontal, DS.Spacing.sm)
+                                .padding(.vertical, 3)
+                                .background(DS.Color.needsSyncBg)
+                                .clipShape(Capsule())
+                                .overlay(Capsule().stroke(DS.Color.needsSync.opacity(0.3), lineWidth: 1))
+                            }
+                            .buttonStyle(.plain)
+                            .disabled(state.isSyncing)
+                        }
                         Spacer()
                         if let skill = record.preferredPreviewSource {
                             Button {
@@ -166,93 +186,19 @@ struct DetailContent: View {
 
                 Divider()
 
-                // Metadata chips
-                let source = record.preferredPreviewSource
-                if source?.hasScripts == true || source?.hasReferences == true || source?.isSystem == true || source?.parseStatus != .ok {
-                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                        Text("METADATA")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(DS.Color.textTertiary)
-                        HStack(spacing: DS.Spacing.sm) {
-                            if source?.isSystem == true {
-                                MetaChip(label: "System", icon: "gear")
-                            }
-                            if source?.hasScripts == true {
-                                MetaChip(label: "Scripts", icon: "terminal")
-                            }
-                            if source?.hasReferences == true {
-                                MetaChip(label: "References", icon: "link")
-                            }
-                            if let ps = source?.parseStatus, ps != .ok {
-                                MetaChip(label: ps.rawValue.capitalized, icon: "exclamationmark.triangle", color: DS.Color.invalid)
-                            }
-                        }
-                    }
-                    Divider()
-                }
-
-                // Usage Stats
-                UsageStatsSection(record: record, state: state)
-
-                // GitHub Sync
-                GitHubSyncSection(record: record, state: state)
+                // Two-column layout: Metadata/Usage/GitHub (left) + AI Eval/Preview (right)
+                DetailColumnsLayout(record: record, state: state)
 
                 Divider()
 
-                // Guidelines
-                GuidelinesSection(record: record, state: state)
+                // Guidelines (collapsed by default)
+                CollapsibleGuidelinesSection(record: record, state: state)
 
                 Divider()
 
-                // AI Evaluation
-                AIEvaluationSection(record: record, state: state)
+                // Locations (collapsed by default)
+                CollapsibleLocationsSection(record: record, state: state)
 
-                Divider()
-
-                // Paths with folder reveal buttons
-                VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                    Text("LOCATIONS")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(DS.Color.textTertiary)
-
-                    ForEach(Provider.allCases) { provider in
-                        if let skill = record.skills[provider] {
-                            HStack {
-                                PathLine(provider: provider, path: skill.skillPath.path)
-                                Spacer()
-                                Button { state.revealInFinder(skill) } label: {
-                                    Image(systemName: "folder")
-                                        .font(.system(size: 12))
-                                        .foregroundStyle(DS.Color.textTertiary)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-
-                // Preview
-                if let excerpt = record.preferredPreviewSource?.previewExcerpt {
-                    Divider()
-                    VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                        Text("PREVIEW")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundStyle(DS.Color.textTertiary)
-                        Text(excerpt)
-                            .font(.system(size: 13))
-                            .foregroundStyle(DS.Color.textSecondary)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .padding(DS.Spacing.lg)
-                            .background(DS.Color.canvas)
-                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-                            .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
-                    }
-                }
-
-                Divider()
-
-                // Transfer actions
-                SyncActionsSection(record: record, state: state)
             }
             .padding(DS.Spacing.xxl)
         }
@@ -771,10 +717,6 @@ struct GuidelinesSection: View {
     var body: some View {
         if !reports.isEmpty {
             VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                Text("GUIDELINES")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(DS.Color.textTertiary)
-
                 ForEach(reports, id: \.0) { provider, report, skill in
                     VStack(alignment: .leading, spacing: DS.Spacing.sm) {
                         HStack {
@@ -1273,6 +1215,162 @@ struct AIIssueRow: View {
                 .foregroundStyle(DS.Color.textSecondary)
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, DS.Spacing.xl)
+        }
+    }
+}
+
+// MARK: - Two-Column Layout
+
+struct DetailColumnsLayout: View {
+    let record: SkillRecord
+    @Bindable var state: AppState
+
+    var body: some View {
+        GeometryReader { geo in
+            if geo.size.width > 520 {
+                HStack(alignment: .top, spacing: DS.Spacing.xl) {
+                    // Left column: Metadata, Usage, GitHub
+                    VStack(alignment: .leading, spacing: DS.Spacing.xxl) {
+                        leftColumnContent
+                    }
+                    .frame(maxWidth: .infinity)
+
+                    // Right column: AI Evaluation, Preview
+                    VStack(alignment: .leading, spacing: DS.Spacing.xxl) {
+                        AIEvaluationSection(record: record, state: state)
+                        previewContent
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: DS.Spacing.xxl) {
+                    leftColumnContent
+                    Divider()
+                    AIEvaluationSection(record: record, state: state)
+                    previewContent
+                }
+            }
+        }
+        .frame(minHeight: columnMinHeight)
+    }
+
+    @ViewBuilder
+    private var leftColumnContent: some View {
+        let source = record.preferredPreviewSource
+        if source?.hasScripts == true || source?.hasReferences == true || source?.isSystem == true || source?.parseStatus != .ok {
+            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                Text("METADATA")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Color.textTertiary)
+                HStack(spacing: DS.Spacing.sm) {
+                    if source?.isSystem == true {
+                        MetaChip(label: "System", icon: "gear")
+                    }
+                    if source?.hasScripts == true {
+                        MetaChip(label: "Scripts", icon: "terminal")
+                    }
+                    if source?.hasReferences == true {
+                        MetaChip(label: "References", icon: "link")
+                    }
+                    if let ps = source?.parseStatus, ps != .ok {
+                        MetaChip(label: ps.rawValue.capitalized, icon: "exclamationmark.triangle", color: DS.Color.invalid)
+                    }
+                }
+            }
+            Divider()
+        }
+
+        UsageStatsSection(record: record, state: state)
+        GitHubSyncSection(record: record, state: state)
+    }
+
+    @ViewBuilder
+    private var previewContent: some View {
+        if let excerpt = record.preferredPreviewSource?.previewExcerpt {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                Text("PREVIEW")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Color.textTertiary)
+                Text(excerpt)
+                    .font(.system(size: 13))
+                    .foregroundStyle(DS.Color.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(DS.Spacing.lg)
+                    .background(DS.Color.canvas)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
+            }
+        }
+    }
+
+    private var columnMinHeight: CGFloat {
+        // Estimate minimum height to prevent GeometryReader from collapsing
+        300
+    }
+}
+
+// MARK: - Collapsible Guidelines
+
+struct CollapsibleGuidelinesSection: View {
+    let record: SkillRecord
+    @Bindable var state: AppState
+    @State private var isExpanded = false
+
+    private var totalViolations: Int {
+        record.totalViolationCount
+    }
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            GuidelinesSection(record: record, state: state)
+        } label: {
+            HStack(spacing: DS.Spacing.sm) {
+                Text("GUIDELINES")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Color.textTertiary)
+                if totalViolations > 0 {
+                    Text("\(totalViolations)")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(DS.Color.warning)
+                        .padding(.horizontal, DS.Spacing.sm)
+                        .padding(.vertical, 2)
+                        .background(DS.Color.warningBg)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Collapsible Locations
+
+struct CollapsibleLocationsSection: View {
+    let record: SkillRecord
+    @Bindable var state: AppState
+    @State private var isExpanded = false
+
+    var body: some View {
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                ForEach(Provider.allCases) { provider in
+                    if let skill = record.skills[provider] {
+                        HStack {
+                            PathLine(provider: provider, path: skill.skillPath.path)
+                            Spacer()
+                            Button { state.revealInFinder(skill) } label: {
+                                Image(systemName: "folder")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(DS.Color.textTertiary)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                }
+            }
+        } label: {
+            Text("LOCATIONS")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(DS.Color.textTertiary)
         }
     }
 }

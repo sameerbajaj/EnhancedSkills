@@ -83,11 +83,11 @@ struct SkillCardView: View {
             RoundedRectangle(cornerRadius: DS.Radius.md)
                 .stroke(isSelected ? DS.Color.accent.opacity(0.3) : DS.Color.borderLight, lineWidth: 1)
         )
-        .shadow(color: isHovered ? .black.opacity(0.08) : .black.opacity(0.04), radius: isHovered ? 12 : 6, x: 0, y: isHovered ? 4 : 2)
+        .shadow(color: .black.opacity(0.04), radius: 6, x: 0, y: 2)
         .scaleEffect(isHovered && !isSelected ? 1.005 : 1.0)
         .opacity(appeared ? 1 : 0)
         .offset(y: appeared ? 0 : 10)
-        .animation(.spring(response: 0.4, dampingFraction: 0.8).delay(Double(index) * 0.04), value: appeared)
+        .animation(.spring(response: 0.3, dampingFraction: 0.85).delay(min(Double(index) * 0.02, 0.3)), value: appeared)
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .onAppear { appeared = true }
         .onHover { isHovered = $0 }

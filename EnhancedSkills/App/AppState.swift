@@ -35,11 +35,11 @@ enum SkillSortOrder: String, CaseIterable, Equatable {
 class AppState {
     let settings: SettingsStore
 
-    var allRecords: [SkillRecord] = []
+    var allRecords: [SkillRecord] = [] { didSet { recomputeCaches() } }
     var selectedRecord: SkillRecord?
-    var searchText: String = ""
-    var activeFilter: FilterOption = .all
-    var providerFilter: Provider? = nil
+    var searchText: String = "" { didSet { recomputeFilteredRecords() } }
+    var activeFilter: FilterOption = .all { didSet { recomputeFilteredRecords() } }
+    var providerFilter: Provider? = nil { didSet { recomputeFilteredRecords() } }
 
     var isLoading = false
     var errorMessage: String?
@@ -69,7 +69,14 @@ class AppState {
     var showImportSheet = false
 
     // MARK: - Sort
-    var sortOrder: SkillSortOrder = .lastModified
+    var sortOrder: SkillSortOrder = .lastModified { didSet { recomputeFilteredRecords() } }
+
+    // MARK: - Cached Counts & Filtered Records
+    private(set) var cachedFilteredRecords: [SkillRecord] = []
+    private(set) var syncedCount: Int = 0
+    private(set) var needsSyncCount: Int = 0
+    private(set) var issueCount: Int = 0
+    private(set) var githubLinkedCount: Int = 0
 
     // MARK: - Evaluation Score Persistence
     var evaluationScoreStore = EvaluationScoreStore()
@@ -112,10 +119,19 @@ class AppState {
         return evaluationScoreStore.freshScore(for: slug, currentHash: hash)
     }
 
-    var filteredRecords: [SkillRecord] {
+    var filteredRecords: [SkillRecord] { cachedFilteredRecords }
+
+    private func recomputeCaches() {
+        syncedCount = allRecords.filter { $0.status == .synced }.count
+        needsSyncCount = allRecords.filter { $0.status == .needsSync }.count
+        issueCount = allRecords.filter { $0.hasGuidelineIssues }.count
+        githubLinkedCount = allRecords.filter { $0.githubOrigin != nil }.count
+        recomputeFilteredRecords()
+    }
+
+    private func recomputeFilteredRecords() {
         var records = allRecords
 
-        // Provider card filter (shows all skills belonging to that provider)
         if let pf = providerFilter {
             records = records.filter { $0.skills[pf] != nil }
         }
@@ -181,13 +197,8 @@ class AppState {
             }
         }
 
-        return records
+        cachedFilteredRecords = records
     }
-
-    var syncedCount: Int { allRecords.filter { $0.status == .synced }.count }
-    var needsSyncCount: Int { allRecords.filter { $0.status == .needsSync }.count }
-    var issueCount: Int { allRecords.filter { $0.hasGuidelineIssues }.count }
-    var githubLinkedCount: Int { allRecords.filter { $0.githubOrigin != nil }.count }
 
     func refresh() async {
         await MainActor.run { isLoading = true; errorMessage = nil }
