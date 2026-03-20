@@ -14,6 +14,7 @@ struct EnhancedSkillsApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView(settings: settingsStore, updaterController: updaterController)
+                .preferredColorScheme(settingsStore.appearance.colorScheme)
         }
         .windowStyle(.hiddenTitleBar)
         .windowResizability(.contentMinSize)
@@ -24,6 +25,7 @@ struct EnhancedSkillsApp: App {
 
         Settings {
             SettingsView(settings: settingsStore, updaterController: updaterController)
+                .preferredColorScheme(settingsStore.appearance.colorScheme)
         }
     }
 }

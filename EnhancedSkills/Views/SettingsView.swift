@@ -4,17 +4,19 @@ import AppKit
 // MARK: - Settings Tab
 
 enum SettingsTab: String, CaseIterable, Identifiable {
-    case providers = "Providers"
-    case ai = "AI"
-    case update = "Update"
+    case providers  = "Providers"
+    case ai         = "AI"
+    case appearance = "Appearance"
+    case update     = "Update"
 
     var id: String { rawValue }
 
     var icon: String {
         switch self {
-        case .providers: "square.grid.2x2"
-        case .ai: "sparkles"
-        case .update: "arrow.triangle.2.circlepath"
+        case .providers:  "square.grid.2x2"
+        case .ai:         "sparkles"
+        case .appearance: "paintbrush"
+        case .update:     "arrow.triangle.2.circlepath"
         }
     }
 }
@@ -69,6 +71,8 @@ struct SettingsView: View {
                     ProvidersSettingsContent(settings: settings)
                 case .ai:
                     AISettingsContent(settings: settings)
+                case .appearance:
+                    AppearanceSettingsContent(settings: settings)
                 case .update:
                     UpdateSettingsContent(settings: settings, updaterController: updaterController)
                 }
@@ -77,6 +81,70 @@ struct SettingsView: View {
             .background(DS.Color.surface)
         }
         .frame(minWidth: 820, minHeight: 640)
+    }
+}
+
+// MARK: - Appearance Settings Content
+
+struct AppearanceSettingsContent: View {
+    @Bindable var settings: SettingsStore
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("Appearance")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(DS.Color.text)
+                Text("Choose how EnhancedSkills looks on your Mac.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.textSecondary)
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.xl)
+            .padding(.bottom, DS.Spacing.lg)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+                VStack(alignment: .leading, spacing: 0) {
+                    ForEach(AppAppearance.allCases, id: \.self) { option in
+                        Button {
+                            settings.appearance = option
+                        } label: {
+                            HStack(spacing: DS.Spacing.sm) {
+                                Image(systemName: settings.appearance == option
+                                      ? "largecircle.fill.circle" : "circle")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(settings.appearance == option
+                                                     ? DS.Color.accent : DS.Color.textTertiary)
+                                Text(option.rawValue)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(DS.Color.text)
+                                Spacer()
+                            }
+                            .padding(.horizontal, DS.Spacing.md)
+                            .padding(.vertical, 10)
+                            .background(settings.appearance == option
+                                        ? DS.Color.accent.opacity(0.08) : Color.clear)
+                        }
+                        .buttonStyle(.plain)
+
+                        if option != AppAppearance.allCases.last {
+                            Divider().padding(.leading, DS.Spacing.md)
+                        }
+                    }
+                }
+                .background(DS.Color.canvas)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.borderLight, lineWidth: 1)
+                )
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.lg)
+            .padding(.bottom, DS.Spacing.xl)
+        }
     }
 }
 

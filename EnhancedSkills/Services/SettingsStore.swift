@@ -1,4 +1,19 @@
 import Foundation
+import SwiftUI
+
+enum AppAppearance: String, CaseIterable {
+    case system = "System"
+    case light  = "Light"
+    case dark   = "Dark"
+
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .system: return nil
+        case .light:  return .light
+        case .dark:   return .dark
+        }
+    }
+}
 
 @Observable
 class SettingsStore {
@@ -30,6 +45,10 @@ class SettingsStore {
     }
 
     // Update settings
+    var appearance: AppAppearance {
+        didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "settings.appearance") }
+    }
+
     var autoCheckForUpdates: Bool {
         didSet { UserDefaults.standard.set(autoCheckForUpdates, forKey: "settings.autoCheckForUpdates") }
     }
@@ -53,6 +72,12 @@ class SettingsStore {
             aiBackend = backend
         } else {
             aiBackend = .claudeCLI
+        }
+        if let appearanceRaw = defaults.string(forKey: "settings.appearance"),
+           let saved = AppAppearance(rawValue: appearanceRaw) {
+            appearance = saved
+        } else {
+            appearance = .system
         }
         anthropicAPIKey = defaults.string(forKey: "settings.anthropicAPIKey") ?? ""
         openAIAPIKey = defaults.string(forKey: "settings.openAIAPIKey") ?? ""
