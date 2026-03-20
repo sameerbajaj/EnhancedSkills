@@ -80,11 +80,13 @@ struct SkillListView: View {
 struct HeroHeaderView: View {
     @Bindable var state: AppState
     @State private var showCopiedFeedback = false
+    @State private var hoveredButton: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            // Top row: skills count + stat badges
             HStack(alignment: .bottom) {
-                VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                HStack(alignment: .firstTextBaseline, spacing: DS.Spacing.sm) {
                     Text("\(state.allRecords.count)")
                         .font(.system(size: 48, weight: .black, design: .default))
                         .foregroundStyle(DS.Color.text)
@@ -94,72 +96,71 @@ struct HeroHeaderView: View {
                         .foregroundStyle(DS.Color.textSecondary)
                 }
                 Spacer()
-                Button {
-                    state.copySkillsSummaryToClipboard()
-                    showCopiedFeedback = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        showCopiedFeedback = false
-                    }
-                } label: {
-                    HStack(spacing: DS.Spacing.xs) {
-                        Image(systemName: "square.and.arrow.up")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text(showCopiedFeedback ? "Copied!" : "Share")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(DS.Color.accent)
-                    .padding(.horizontal, DS.Spacing.md)
-                    .padding(.vertical, DS.Spacing.sm)
-                    .background(DS.Color.accentLight)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .disabled(state.allRecords.isEmpty)
-                .help("Copy skills summary to clipboard")
-                Button {
-                    state.exportSkillsAsZip()
-                } label: {
-                    HStack(spacing: DS.Spacing.xs) {
-                        Image(systemName: "archivebox")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Export")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(DS.Color.accent)
-                    .padding(.horizontal, DS.Spacing.md)
-                    .padding(.vertical, DS.Spacing.sm)
-                    .background(DS.Color.accentLight)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .disabled(state.allRecords.isEmpty || state.isExporting)
-                .help("Export all skills as zip")
-                Button {
-                    state.showImportSheet = true
-                } label: {
-                    HStack(spacing: DS.Spacing.xs) {
-                        Image(systemName: "square.and.arrow.down")
-                            .font(.system(size: 12, weight: .semibold))
-                        Text("Import")
-                            .font(.system(size: 12, weight: .semibold))
-                    }
-                    .foregroundStyle(DS.Color.accent)
-                    .padding(.horizontal, DS.Spacing.md)
-                    .padding(.vertical, DS.Spacing.sm)
-                    .background(DS.Color.accentLight)
-                    .clipShape(Capsule())
-                }
-                .buttonStyle(.plain)
-                .help("Import skill from GitHub")
                 HStack(spacing: DS.Spacing.xl) {
                     StatBadge(label: "Synced", value: state.syncedCount, color: DS.Color.synced)
                     StatBadge(label: "Needs Sync", value: state.needsSyncCount, color: DS.Color.needsSync)
                 }
             }
+
+            // Action row: icon-only buttons
+            HStack(spacing: DS.Spacing.sm) {
+                headerIconButton(
+                    id: "share",
+                    icon: "square.and.arrow.up",
+                    tooltip: showCopiedFeedback ? "Copied!" : "Copy skills summary to clipboard",
+                    disabled: state.allRecords.isEmpty
+                ) {
+                    state.copySkillsSummaryToClipboard()
+                    showCopiedFeedback = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                        showCopiedFeedback = false
+                    }
+                }
+
+                headerIconButton(
+                    id: "export",
+                    icon: "archivebox",
+                    tooltip: "Export all skills as zip",
+                    disabled: state.allRecords.isEmpty || state.isExporting
+                ) {
+                    state.exportSkillsAsZip()
+                }
+
+                headerIconButton(
+                    id: "import",
+                    icon: "square.and.arrow.down",
+                    tooltip: "Import skill from GitHub",
+                    disabled: false
+                ) {
+                    state.showImportSheet = true
+                }
+
+                Spacer()
+            }
         }
         .padding(.horizontal, DS.Spacing.xl)
         .padding(.top, DS.Spacing.xxl)
         .padding(.bottom, DS.Spacing.xl)
+    }
+
+    @ViewBuilder
+    private func headerIconButton(id: String, icon: String, tooltip: String, disabled: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(disabled ? DS.Color.textTertiary : DS.Color.textSecondary)
+                .frame(width: 30, height: 26)
+                .background(
+                    RoundedRectangle(cornerRadius: DS.Radius.sm)
+                        .fill(hoveredButton == id ? DS.Color.border.opacity(0.5) : Color.clear)
+                )
+        }
+        .buttonStyle(.plain)
+        .disabled(disabled)
+        .help(tooltip)
+        .onHover { isHovered in
+            hoveredButton = isHovered ? id : nil
+        }
     }
 }
 

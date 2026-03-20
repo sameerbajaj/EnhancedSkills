@@ -68,7 +68,7 @@ struct SidebarView: View {
             Spacer()
 
             // Refresh + Settings
-            HStack(spacing: DS.Spacing.sm) {
+            HStack {
                 Button {
                     Task { await state.refresh() }
                 } label: {
@@ -87,16 +87,6 @@ struct SidebarView: View {
                 Spacer()
 
                 Button {
-                    state.showImportSheet = true
-                } label: {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(DS.Color.textSecondary)
-                }
-                .buttonStyle(.plain)
-                .help("Import from GitHub")
-
-                Button {
                     state.showSettings = true
                 } label: {
                     Image(systemName: "gear")
@@ -104,10 +94,10 @@ struct SidebarView: View {
                         .foregroundStyle(DS.Color.textSecondary)
                 }
                 .buttonStyle(.plain)
+                .help("Settings")
             }
             .padding(.horizontal, DS.Spacing.xl)
-            .padding(.vertical, DS.Spacing.md)
-            .padding(.bottom, DS.Spacing.xl)
+            .padding(.vertical, DS.Spacing.lg)
         }
         .frame(width: 220)
         .background(DS.Color.canvas)
