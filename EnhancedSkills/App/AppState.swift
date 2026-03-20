@@ -16,6 +16,8 @@ enum SkillSortOrder: String, CaseIterable, Equatable {
     case mostUsed = "Most Used"
     case title = "Title"
     case recentlyAccessed = "Recently Accessed"
+    case scoreDescending = "Score ↓"
+    case scoreAscending = "Score ↑"
 
     var icon: String {
         switch self {
@@ -23,6 +25,8 @@ enum SkillSortOrder: String, CaseIterable, Equatable {
         case .mostUsed:         return "flame"
         case .title:            return "textformat"
         case .recentlyAccessed: return "clock.arrow.circlepath"
+        case .scoreDescending:  return "chart.bar.fill"
+        case .scoreAscending:   return "chart.bar"
         }
     }
 }
@@ -138,9 +142,21 @@ class AppState {
             }
         }
 
-        switch sortOption {
-        case .alphabetical:
+        switch sortOrder {
+        case .lastModified:
+            records.sort { ($0.lastModified ?? .distantPast) > ($1.lastModified ?? .distantPast) }
+        case .mostUsed:
+            records.sort {
+                (usageDatabase?.records[$0.slug]?.totalUsageCount ?? 0) >
+                (usageDatabase?.records[$1.slug]?.totalUsageCount ?? 0)
+            }
+        case .title:
             records.sort { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        case .recentlyAccessed:
+            records.sort {
+                (usageDatabase?.records[$0.slug]?.lastUsedAcrossProviders ?? .distantPast) >
+                (usageDatabase?.records[$1.slug]?.lastUsedAcrossProviders ?? .distantPast)
+            }
         case .scoreDescending:
             records.sort { a, b in
                 let sa = evaluationScore(for: a.slug, currentHash: a.preferredPreviewSource?.contentHash)
@@ -162,21 +178,6 @@ class AppState {
                 case (nil, _?): return false
                 case (nil, nil): return a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
                 }
-            }
-        case .lastModified:
-            records.sort { a, b in
-                switch (a.lastModified, b.lastModified) {
-                case let (l?, r?): return l > r
-                case (_?, nil): return true
-                case (nil, _?): return false
-                case (nil, nil): return a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
-                }
-            }
-        case .mostUsed:
-            records.sort { a, b in
-                let ua = usageStats(for: a.slug)?.totalUsageCount ?? 0
-                let ub = usageStats(for: b.slug)?.totalUsageCount ?? 0
-                return ua != ub ? ua > ub : a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
             }
         }
 

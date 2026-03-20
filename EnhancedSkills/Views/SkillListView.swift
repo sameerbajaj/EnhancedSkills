@@ -23,26 +23,24 @@ struct SkillListView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                Divider()
+                    .frame(height: 16)
+
                 Menu {
-                    ForEach(SortOption.allCases, id: \.self) { option in
-                        Button {
-                            state.sortOption = option
-                        } label: {
-                            HStack {
-                                Text(option.rawValue)
-                                if state.sortOption == option {
-                                    Image(systemName: "checkmark")
-                                }
-                            }
+                    Picker("Sort", selection: $state.sortOrder) {
+                        ForEach(SkillSortOrder.allCases, id: \.self) { order in
+                            Label(order.rawValue, systemImage: order.icon)
+                                .tag(order)
                         }
                     }
                 } label: {
-                    Image(systemName: "arrow.up.arrow.down")
-                        .font(.system(size: 12))
-                        .foregroundStyle(state.sortOption == .alphabetical ? DS.Color.textTertiary : DS.Color.accent)
+                    Image(systemName: state.sortOrder.icon)
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(DS.Color.textSecondary)
                 }
                 .menuStyle(.borderlessButton)
                 .fixedSize()
+                .help("Sort by: \(state.sortOrder.rawValue)")
             }
             .padding(.horizontal, DS.Spacing.lg)
             .padding(.vertical, DS.Spacing.md)
