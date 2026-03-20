@@ -68,6 +68,10 @@ class AppState {
     var showSettings = false
     var showImportSheet = false
 
+    // MARK: - Delete
+    var showDeleteConfirmation = false
+    var recordToDelete: SkillRecord?
+
     // MARK: - Sort
     var sortOrder: SkillSortOrder = .lastModified { didSet { recomputeFilteredRecords() } }
 
@@ -336,6 +340,28 @@ class AppState {
         } catch {
             await MainActor.run { fixError = error.localizedDescription; isFixing = false }
         }
+    }
+
+    func deleteSkill(record: SkillRecord, providers: [Provider]) async {
+        let fm = FileManager.default
+        var failedProviders: [String] = []
+        for provider in providers {
+            guard let skill = record.skills[provider] else { continue }
+            do {
+                try fm.trashItem(at: skill.skillPath, resultingItemURL: nil)
+            } catch {
+                failedProviders.append("\(provider.displayName): \(error.localizedDescription)")
+            }
+        }
+        if !failedProviders.isEmpty {
+            await MainActor.run { errorMessage = "Failed to delete: " + failedProviders.joined(separator: "; ") }
+        }
+        // Clear selection if all providers were deleted
+        let remainingProviders = record.skills.keys.filter { !providers.contains($0) }
+        if remainingProviders.isEmpty {
+            await MainActor.run { if selectedRecord?.id == record.id { selectedRecord = nil } }
+        }
+        await refresh()
     }
 
     func revealInFinder(_ skill: DiscoveredSkill) {

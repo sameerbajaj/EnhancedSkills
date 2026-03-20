@@ -93,6 +93,28 @@ struct SkillListView: View {
                     .padding(.horizontal, DS.Spacing.xl)
                     .padding(.bottom, DS.Spacing.xl)
                 }
+                .confirmationDialog(
+                    "Delete \(state.recordToDelete?.displayName ?? "Skill")?",
+                    isPresented: $state.showDeleteConfirmation,
+                    titleVisibility: .visible
+                ) {
+                    if let record = state.recordToDelete {
+                        let providers = Array(record.skills.keys).sorted { $0.rawValue < $1.rawValue }
+                        if providers.count >= 2 {
+                            Button("Delete from All Providers", role: .destructive) {
+                                Task { await state.deleteSkill(record: record, providers: providers) }
+                            }
+                        }
+                        ForEach(providers) { provider in
+                            Button("Delete from \(provider.displayName)", role: .destructive) {
+                                Task { await state.deleteSkill(record: record, providers: [provider]) }
+                            }
+                        }
+                        Button("Cancel", role: .cancel) {}
+                    }
+                } message: {
+                    Text("This will move the skill folder to the Trash.")
+                }
             }
         }
         .frame(minWidth: 320)
@@ -295,6 +317,15 @@ struct SkillContextMenu: View {
                     }
                 }
             }
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            state.recordToDelete = record
+            state.showDeleteConfirmation = true
+        } label: {
+            Label("Delete…", systemImage: "trash")
         }
     }
 }
