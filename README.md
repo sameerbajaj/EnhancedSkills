@@ -1,10 +1,32 @@
 # EnhancedSkills
 
-A native macOS app for discovering, comparing, and syncing AI skills across multiple providers — Codex, Claude, OpenClaw, Gemini, and Antigravity.
+**A native macOS skill manager with AI-powered evaluation, provider-specific validation, and one-click fixes.**
+
+![macOS](https://img.shields.io/badge/macOS-14%2B-blue?logo=apple) ![Swift](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift) ![License](https://img.shields.io/github/license/sameerbajaj/EnhancedSkills)
+
+![EnhancedSkills](assets/screenshot.png)
+
+---
+
+## Why EnhancedSkills
+
+- **AI evaluation** — Every skill is scored on structure, description quality, and content. The app suggests concrete improvements and can rewrite descriptions automatically.
+- **Validation + auto-fix** — Provider-specific guideline violations are surfaced by severity. Most issues fix in one click, individually or in bulk.
+- **GitHub import** — Discover and import skills directly from any GitHub repository. No manual cloning required.
+- **Visual management** — A premium three-column layout with per-provider color coding gives you a clear picture of your entire skill library at a glance.
 
 ---
 
 ## Features
+
+### AI Skill Evaluation
+EnhancedSkills scores each skill on structure, description quality, and content using AI. Scores are shown inline, and the app surfaces specific suggestions for improvement — including the ability to have descriptions rewritten automatically.
+
+### Validation & Auto-Fix
+Every skill is validated against provider-specific guidelines. Violations are surfaced by severity (error, warning, suggestion) with fix hints. Most issues can be fixed automatically — individually or in bulk — directly from the UI.
+
+### GitHub Import
+Discover and import skills from any GitHub repository. Paste a repo URL and EnhancedSkills fetches and previews available skills before importing — no `git clone` required.
 
 ### Multi-Provider Skill Discovery
 EnhancedSkills scans all configured skill directories and merges them into a unified library. Each skill is tracked across every provider so you always know what's where.
@@ -14,9 +36,6 @@ Skills are grouped by sync state — **Synced** (present in multiple providers),
 
 ### Manual Transfer with Preview
 Copy any skill to another provider with a full transfer preview before anything is written. The app shows source/destination paths and file counts, and asks for confirmation if a skill already exists at the destination.
-
-### Validation & Auto-Fix
-Every skill is validated against provider guidelines. Violations are surfaced by severity (error, warning, suggestion) with fix hints. Most issues can be fixed automatically — individually or in bulk — directly from the UI.
 
 ### Filtering & Search
 Filter by sync status, provider, or validation issues. Search by skill name or description. Click any provider card in the sidebar to instantly scope the list to that provider's skills.
