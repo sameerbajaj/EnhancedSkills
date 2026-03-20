@@ -29,6 +29,12 @@ struct SkillParser {
             skill.versionHistory = try? decoder.decode(SkillVersionHistory.self, from: historyData)
         }
 
+        // Load GitHub origin if present
+        if let origin = GitHubOrigin.loadOrigin(from: skill.skillPath) {
+            skill.githubOrigin = origin
+            skill.githubSyncStatus = .checking  // Will be updated async by AppState
+        }
+
         if let fmRaw {
             let parsed = parseFrontmatter(fmRaw)
             skill.parsedName = parsed["name"]

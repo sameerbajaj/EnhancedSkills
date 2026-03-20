@@ -47,6 +47,7 @@ struct SkillCardView: View {
                     .background(DS.Color.warningBg)
                     .clipShape(Capsule())
                 }
+                GitHubSyncBadge(status: record.githubSyncStatus)
                 Spacer()
                 if let date = record.lastModified {
                     Text(date, style: .relative)
@@ -123,6 +124,42 @@ struct StatusPill: View {
             .padding(.vertical, 3)
             .background(bg)
             .clipShape(Capsule())
+    }
+}
+
+struct GitHubSyncBadge: View {
+    let status: GitHubSyncStatus
+
+    private var icon: String? {
+        switch status {
+        case .notLinked: return nil
+        case .checking: return "arrow.clockwise"
+        case .inSync: return "checkmark.icloud.fill"
+        case .localAhead: return "icloud.and.arrow.up.fill"
+        case .remoteAhead: return "icloud.and.arrow.down.fill"
+        case .diverged: return "exclamationmark.icloud.fill"
+        case .error: return "xmark.icloud.fill"
+        }
+    }
+
+    private var color: Color {
+        switch status {
+        case .notLinked: return .clear
+        case .checking: return DS.Color.textTertiary
+        case .inSync: return DS.Color.synced
+        case .localAhead: return DS.Color.localAhead
+        case .remoteAhead: return DS.Color.remoteAhead
+        case .diverged: return DS.Color.diverged
+        case .error: return DS.Color.invalid
+        }
+    }
+
+    var body: some View {
+        if let icon {
+            Image(systemName: icon)
+                .font(.system(size: 11))
+                .foregroundStyle(color)
+        }
     }
 }
 

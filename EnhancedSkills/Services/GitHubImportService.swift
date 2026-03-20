@@ -235,6 +235,22 @@ struct GitHubImportService {
         } catch {
             throw GitHubImportError.fileWriteFailed(error)
         }
+
+        // Persist GitHub origin metadata
+        if let parsed = GitHubOrigin.parseOwnerRepo(from: content.originalURL) {
+            let origin = GitHubOrigin(
+                repoURL: "https://github.com/\(parsed.owner)/\(parsed.repoName)",
+                owner: parsed.owner,
+                repoName: parsed.repoName,
+                branch: "main",
+                lastSyncedCommitSHA: nil,
+                lastSyncedContentHash: nil,
+                syncDirection: .upstream,
+                hasWriteAccess: false,  // Updated async when user pushes/pulls
+                lastChecked: Date()
+            )
+            try? GitHubOrigin.saveOrigin(origin, to: skillDir)
+        }
     }
 
     static func skillExists(_ content: GitHubSkillContent, at provider: Provider, rootPath: URL) -> Bool {

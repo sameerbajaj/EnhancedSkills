@@ -50,6 +50,20 @@ class AppState {
 
     var skillCounts: [Provider: Int] = [:]
 
+    // MARK: - GitHub Sync State
+    var ghCLIAvailable = false
+    var ghCLIAuthenticated = false
+    var githubUsername: String?
+    var isPublishing = false
+    var publishError: String?
+    var showPublishSheet = false
+    var publishingSkill: DiscoveredSkill?
+    var isGitHubSyncing = false
+    var githubSyncError: String?
+    var showDivergenceSheet = false
+    var divergingSkill: DiscoveredSkill?
+    var divergingOrigin: GitHubOrigin?
+
     init(settings: SettingsStore) {
         self.settings = settings
     }
@@ -134,6 +148,8 @@ class AppState {
                     selectedRecord = merged.first
                 }
             }
+            // Check GitHub divergence for linked skills in background
+            Task { await checkAllGitHubDivergence() }
         } catch {
             await MainActor.run { errorMessage = error.localizedDescription; isLoading = false }
         }
@@ -415,6 +431,171 @@ class AppState {
             await refresh()
         } catch {
             await MainActor.run { improvementState = .failed(error.localizedDescription) }
+        }
+    }
+
+    // MARK: - GitHub Sync
+
+    func checkGHCLI() async {
+        let available = GHCLIRunner.isInstalled()
+        let authenticated = available ? await GHCLIRunner.isAuthenticated() : false
+        let username: String? = authenticated ? (try? await GHCLIRunner.authenticatedUser()) : nil
+        await MainActor.run {
+            ghCLIAvailable = available
+            ghCLIAuthenticated = authenticated
+            githubUsername = username
+        }
+    }
+
+    func startPublishing(skill: DiscoveredSkill) {
+        publishingSkill = skill
+        publishError = nil
+        showPublishSheet = true
+    }
+
+    @discardableResult
+    func publishToGitHub(skill: DiscoveredSkill, repoName: String, visibility: RepoVisibility, description: String) async throws -> GitHubOrigin {
+        await MainActor.run { isPublishing = true; publishError = nil }
+        do {
+            let origin = try await GitHubSyncService.publishToGitHub(
+                skill: skill, repoName: repoName, visibility: visibility, description: description
+            )
+            await MainActor.run { isPublishing = false }
+            await refresh()
+            await checkAllGitHubDivergence()
+            return origin
+        } catch {
+            await MainActor.run { isPublishing = false; publishError = error.localizedDescription }
+            throw error
+        }
+    }
+
+    func pushToGitHub(skill: DiscoveredSkill) async {
+        guard let origin = skill.githubOrigin else { return }
+        await MainActor.run { isGitHubSyncing = true; githubSyncError = nil }
+        do {
+            let updated = try await GitHubSyncService.pushToGitHub(skill: skill, origin: origin)
+            await MainActor.run { isGitHubSyncing = false }
+            updateGitHubOrigin(updated, for: skill)
+            await checkGitHubDivergence(for: skill)
+        } catch {
+            await MainActor.run { isGitHubSyncing = false; githubSyncError = error.localizedDescription }
+        }
+    }
+
+    func pullFromGitHub(skill: DiscoveredSkill) async {
+        guard let origin = skill.githubOrigin else { return }
+        await MainActor.run { isGitHubSyncing = true; githubSyncError = nil }
+        do {
+            let updated = try await GitHubSyncService.pullFromGitHub(skill: skill, origin: origin)
+            await MainActor.run { isGitHubSyncing = false }
+            updateGitHubOrigin(updated, for: skill)
+            await refresh()
+        } catch {
+            await MainActor.run { isGitHubSyncing = false; githubSyncError = error.localizedDescription }
+        }
+    }
+
+    func forceLocalToGitHub(skill: DiscoveredSkill) async {
+        guard let origin = skill.githubOrigin else { return }
+        await MainActor.run { isGitHubSyncing = true; githubSyncError = nil }
+        do {
+            let updated = try await GitHubSyncService.forceLocalToGitHub(skill: skill, origin: origin)
+            await MainActor.run { isGitHubSyncing = false; showDivergenceSheet = false }
+            updateGitHubOrigin(updated, for: skill)
+            await checkGitHubDivergence(for: skill)
+        } catch {
+            await MainActor.run { isGitHubSyncing = false; githubSyncError = error.localizedDescription }
+        }
+    }
+
+    func forceRemoteToLocal(skill: DiscoveredSkill) async {
+        guard let origin = skill.githubOrigin else { return }
+        await MainActor.run { isGitHubSyncing = true; githubSyncError = nil }
+        do {
+            let updated = try await GitHubSyncService.forceRemoteToLocal(skill: skill, origin: origin)
+            await MainActor.run { isGitHubSyncing = false; showDivergenceSheet = false }
+            updateGitHubOrigin(updated, for: skill)
+            await refresh()
+        } catch {
+            await MainActor.run { isGitHubSyncing = false; githubSyncError = error.localizedDescription }
+        }
+    }
+
+    func disconnectFromGitHub(skill: DiscoveredSkill) {
+        let githubJSONPath = skill.skillPath.appendingPathComponent(".github.json")
+        try? FileManager.default.removeItem(at: githubJSONPath)
+        Task { await refresh() }
+    }
+
+    func checkGitHubDivergence(for skill: DiscoveredSkill) async {
+        guard let origin = skill.githubOrigin else { return }
+        let status = await GitHubSyncService.checkDivergence(skill: skill, origin: origin)
+        await MainActor.run {
+            updateGitHubSyncStatus(status, for: skill)
+        }
+    }
+
+    func checkAllGitHubDivergence() async {
+        let linkedSkills = allRecords.flatMap { record in
+            record.skills.values.filter { $0.githubOrigin != nil }
+        }
+        guard !linkedSkills.isEmpty else { return }
+        await withTaskGroup(of: Void.self) { group in
+            for skill in linkedSkills {
+                group.addTask { await self.checkGitHubDivergence(for: skill) }
+            }
+        }
+    }
+
+    func setupGitHubForImportedSkill(_ skill: DiscoveredSkill) async {
+        guard let origin = skill.githubOrigin else { return }
+        let writeAccess = await GHCLIRunner.checkWriteAccess(owner: origin.owner, repoName: origin.repoName)
+        var updated = origin
+        updated.hasWriteAccess = writeAccess
+        updated.syncDirection = writeAccess ? .origin : .upstream
+        try? GitHubOrigin.saveOrigin(updated, to: skill.skillPath)
+        do {
+            try await GitHubSyncService.setupGitForImportedSkill(at: skill.skillPath, origin: updated)
+        } catch {
+            // Non-fatal: git setup failed
+        }
+        await checkGitHubDivergence(for: skill)
+    }
+
+    // MARK: - Private GitHub Helpers
+
+    private func updateGitHubSyncStatus(_ status: GitHubSyncStatus, for skill: DiscoveredSkill) {
+        for i in allRecords.indices {
+            for provider in Provider.allCases {
+                if allRecords[i].skills[provider]?.id == skill.id {
+                    allRecords[i].skills[provider]?.githubSyncStatus = status
+                }
+            }
+        }
+        if selectedRecord != nil {
+            for provider in Provider.allCases {
+                if selectedRecord?.skills[provider]?.id == skill.id {
+                    selectedRecord?.skills[provider]?.githubSyncStatus = status
+                }
+            }
+        }
+    }
+
+    private func updateGitHubOrigin(_ origin: GitHubOrigin, for skill: DiscoveredSkill) {
+        for i in allRecords.indices {
+            for provider in Provider.allCases {
+                if allRecords[i].skills[provider]?.id == skill.id {
+                    allRecords[i].skills[provider]?.githubOrigin = origin
+                }
+            }
+        }
+        if selectedRecord != nil {
+            for provider in Provider.allCases {
+                if selectedRecord?.skills[provider]?.id == skill.id {
+                    selectedRecord?.skills[provider]?.githubOrigin = origin
+                }
+            }
         }
     }
 }

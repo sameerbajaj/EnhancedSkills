@@ -191,6 +191,11 @@ struct DetailContent: View {
                     Divider()
                 }
 
+                // GitHub Sync
+                GitHubSyncSection(record: record, state: state)
+
+                Divider()
+
                 // Guidelines
                 GuidelinesSection(record: record, state: state)
 
@@ -258,6 +263,259 @@ struct DetailContent: View {
                 TransferConfirmationSheet(plan: plan, state: state)
             }
         }
+        .sheet(isPresented: $state.showPublishSheet) {
+            if let skill = state.publishingSkill {
+                PublishToGitHubSheet(skill: skill, state: state)
+            }
+        }
+        .sheet(isPresented: $state.showDivergenceSheet) {
+            if let skill = state.divergingSkill, let origin = state.divergingOrigin {
+                GitHubDivergenceSheet(skill: skill, origin: origin, state: state)
+            }
+        }
+    }
+}
+
+// MARK: - GitHub Sync Section
+
+struct GitHubSyncSection: View {
+    let record: SkillRecord
+    @Bindable var state: AppState
+
+    private var preferredLinkedSkill: DiscoveredSkill? {
+        record.skills.values.first(where: { $0.githubOrigin != nil })
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            HStack {
+                Text("GITHUB")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Color.textTertiary)
+                Spacer()
+                if let skill = preferredLinkedSkill, let origin = skill.githubOrigin {
+                    SyncStatusPill(status: skill.githubSyncStatus)
+                    // Refresh button
+                    Button {
+                        Task { await state.checkGitHubDivergence(for: skill) }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Check sync status")
+                    let _ = origin  // suppress unused warning
+                }
+            }
+
+            if let skill = preferredLinkedSkill, let origin = skill.githubOrigin {
+                // Linked state
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    // Repo URL
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "link")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.textTertiary)
+                        Text(origin.repoURL)
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(DS.Color.accent)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Button {
+                            if let url = URL(string: origin.repoURL) {
+                                NSWorkspace.shared.open(url)
+                            }
+                        } label: {
+                            Image(systemName: "arrow.up.right.square")
+                                .font(.system(size: 10))
+                                .foregroundStyle(DS.Color.textTertiary)
+                        }
+                        .buttonStyle(.plain)
+                    }
+
+                    // Direction badge
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: origin.syncDirection == .origin ? "person.fill" : "arrow.down.circle")
+                            .font(.system(size: 10))
+                            .foregroundStyle(DS.Color.textTertiary)
+                        Text(origin.syncDirection == .origin ? "You own this repo" : "Imported from upstream")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.textSecondary)
+                    }
+
+                    // Action buttons based on sync status
+                    HStack(spacing: DS.Spacing.sm) {
+                        switch skill.githubSyncStatus {
+                        case .localAhead:
+                            GitHubActionButton(label: "Push", icon: "arrow.up.circle.fill", color: DS.Color.localAhead) {
+                                Task { await state.pushToGitHub(skill: skill) }
+                            }
+                        case .remoteAhead:
+                            GitHubActionButton(label: "Pull", icon: "arrow.down.circle.fill", color: DS.Color.remoteAhead) {
+                                Task { await state.pullFromGitHub(skill: skill) }
+                            }
+                        case .diverged:
+                            GitHubActionButton(label: "Resolve", icon: "exclamationmark.icloud.fill", color: DS.Color.diverged) {
+                                state.divergingSkill = skill
+                                state.divergingOrigin = origin
+                                state.showDivergenceSheet = true
+                            }
+                        case .inSync:
+                            HStack(spacing: DS.Spacing.xs) {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(DS.Color.synced)
+                                Text("In sync with remote")
+                                    .font(.system(size: 11))
+                                    .foregroundStyle(DS.Color.textSecondary)
+                            }
+                            if origin.hasWriteAccess {
+                                GitHubActionButton(label: "Push", icon: "arrow.up.circle", color: DS.Color.textSecondary) {
+                                    Task { await state.pushToGitHub(skill: skill) }
+                                }
+                            }
+                            GitHubActionButton(label: "Pull", icon: "arrow.down.circle", color: DS.Color.textSecondary) {
+                                Task { await state.pullFromGitHub(skill: skill) }
+                            }
+                        case .error(let msg):
+                            Text(msg)
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.invalid)
+                        default:
+                            EmptyView()
+                        }
+
+                        if state.isGitHubSyncing {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
+                    }
+
+                    if let err = state.githubSyncError {
+                        Text(err)
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.invalid)
+                    }
+                }
+                .padding(DS.Spacing.md)
+                .background(DS.Color.surface)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
+
+            } else if let skill = record.preferredPreviewSource {
+                // Not linked state
+                if state.ghCLIAvailable && state.ghCLIAuthenticated {
+                    Button {
+                        state.startPublishing(skill: skill)
+                    } label: {
+                        HStack(spacing: DS.Spacing.sm) {
+                            Image(systemName: "arrow.up.to.line.circle.fill")
+                                .font(.system(size: 14))
+                            Text("Publish to GitHub")
+                                .font(.system(size: 13, weight: .semibold))
+                            Spacer()
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 11))
+                        }
+                        .foregroundStyle(DS.Color.accent)
+                        .padding(DS.Spacing.md)
+                        .background(DS.Color.accentLight)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.accent.opacity(0.3), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    let _ = skill  // used above
+                } else if !state.ghCLIAvailable {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.textTertiary)
+                        Text("Install the GitHub CLI (gh) to publish and sync skills.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.textTertiary)
+                    }
+                } else {
+                    HStack(spacing: DS.Spacing.xs) {
+                        Image(systemName: "person.crop.circle.badge.questionmark")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.textTertiary)
+                        Text("Run \u{2018}gh auth login\u{2019} to connect your GitHub account.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.textTertiary)
+                    }
+                }
+            }
+        }
+    }
+}
+
+// MARK: - Supporting Views
+
+struct SyncStatusPill: View {
+    let status: GitHubSyncStatus
+
+    private var fg: Color {
+        switch status {
+        case .notLinked: return DS.Color.textTertiary
+        case .checking: return DS.Color.textSecondary
+        case .inSync: return DS.Color.synced
+        case .localAhead: return DS.Color.localAhead
+        case .remoteAhead: return DS.Color.remoteAhead
+        case .diverged: return DS.Color.diverged
+        case .error: return DS.Color.invalid
+        }
+    }
+
+    private var bg: Color {
+        switch status {
+        case .notLinked: return DS.Color.borderLight
+        case .checking: return DS.Color.borderLight
+        case .inSync: return DS.Color.syncedBg
+        case .localAhead: return DS.Color.localAheadBg
+        case .remoteAhead: return DS.Color.remoteAheadBg
+        case .diverged: return DS.Color.divergedBg
+        case .error: return DS.Color.invalidBg
+        }
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: status.sfSymbol)
+                .font(.system(size: 9))
+            Text(status.displayName)
+                .font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundStyle(fg)
+        .padding(.horizontal, DS.Spacing.sm)
+        .padding(.vertical, 3)
+        .background(bg)
+        .clipShape(Capsule())
+    }
+}
+
+struct GitHubActionButton: View {
+    let label: String
+    let icon: String
+    let color: Color
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: DS.Spacing.xs) {
+                Image(systemName: icon)
+                    .font(.system(size: 12))
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            .foregroundStyle(color)
+            .padding(.horizontal, DS.Spacing.md)
+            .padding(.vertical, DS.Spacing.xs)
+            .background(color.opacity(0.10))
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.sm).stroke(color.opacity(0.25), lineWidth: 1))
+        }
+        .buttonStyle(.plain)
     }
 }
 

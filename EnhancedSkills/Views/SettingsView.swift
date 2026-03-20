@@ -6,6 +6,7 @@ import AppKit
 enum SettingsTab: String, CaseIterable, Identifiable {
     case providers  = "Providers"
     case ai         = "AI"
+    case github     = "GitHub"
     case appearance = "Appearance"
     case update     = "Update"
 
@@ -15,6 +16,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .providers:  "square.grid.2x2"
         case .ai:         "sparkles"
+        case .github:     "arrow.triangle.2.circlepath.circle"
         case .appearance: "paintbrush"
         case .update:     "arrow.triangle.2.circlepath"
         }
@@ -25,6 +27,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
 
 struct SettingsView: View {
     @Bindable var settings: SettingsStore
+    var appState: AppState?
     var updaterController: UpdaterController?
     @State private var selectedTab: SettingsTab = .providers
 
@@ -71,6 +74,8 @@ struct SettingsView: View {
                     ProvidersSettingsContent(settings: settings)
                 case .ai:
                     AISettingsContent(settings: settings)
+                case .github:
+                    GitHubSettingsContent(appState: appState)
                 case .appearance:
                     AppearanceSettingsContent(settings: settings)
                 case .update:
@@ -81,6 +86,158 @@ struct SettingsView: View {
             .background(DS.Color.surface)
         }
         .frame(minWidth: 820, minHeight: 640)
+    }
+}
+
+// MARK: - GitHub Settings Content
+
+struct GitHubSettingsContent: View {
+    var appState: AppState?
+    @State private var isChecking = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text("GitHub Sync")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(DS.Color.text)
+                Text("Publish skills to GitHub and keep them in sync with remotes.")
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.textSecondary)
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.xl)
+            .padding(.bottom, DS.Spacing.lg)
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: DS.Spacing.lg) {
+
+                // gh CLI status card
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Text("GitHub CLI (gh)")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(DS.Color.text)
+
+                    if let state = appState {
+                        HStack(spacing: DS.Spacing.sm) {
+                            Circle()
+                                .fill(state.ghCLIAvailable ? DS.Color.synced : DS.Color.invalid)
+                                .frame(width: 8, height: 8)
+                            Text(state.ghCLIAvailable ? "Installed" : "Not installed")
+                                .font(.system(size: 12))
+                                .foregroundStyle(state.ghCLIAvailable ? DS.Color.synced : DS.Color.invalid)
+                        }
+
+                        if state.ghCLIAvailable {
+                            HStack(spacing: DS.Spacing.sm) {
+                                Circle()
+                                    .fill(state.ghCLIAuthenticated ? DS.Color.synced : DS.Color.warning)
+                                    .frame(width: 8, height: 8)
+                                if state.ghCLIAuthenticated {
+                                    HStack(spacing: 4) {
+                                        Text("Authenticated")
+                                            .font(.system(size: 12))
+                                            .foregroundStyle(DS.Color.synced)
+                                        if let user = state.githubUsername {
+                                            Text("as \(user)")
+                                                .font(.system(size: 12, weight: .medium))
+                                                .foregroundStyle(DS.Color.text)
+                                        }
+                                    }
+                                } else {
+                                    Text("Not authenticated — run: gh auth login")
+                                        .font(.system(size: 12, design: .monospaced))
+                                        .foregroundStyle(DS.Color.warning)
+                                }
+                            }
+                        } else {
+                            Text("Install with: brew install gh")
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(DS.Color.textTertiary)
+                        }
+                    }
+                }
+                .padding(DS.Spacing.md)
+                .background(DS.Color.canvas)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.borderLight, lineWidth: 1)
+                )
+
+                // Refresh button
+                Button {
+                    isChecking = true
+                    Task {
+                        await appState?.checkGHCLI()
+                        await MainActor.run { isChecking = false }
+                    }
+                } label: {
+                    HStack(spacing: DS.Spacing.xs) {
+                        if isChecking {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Image(systemName: "arrow.clockwise")
+                                .font(.system(size: 12))
+                        }
+                        Text("Refresh Status")
+                            .font(.system(size: 13, weight: .medium))
+                    }
+                    .foregroundStyle(DS.Color.accent)
+                    .padding(.horizontal, DS.Spacing.md)
+                    .padding(.vertical, DS.Spacing.sm)
+                    .background(DS.Color.accentLight)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: DS.Radius.sm)
+                            .stroke(DS.Color.accent.opacity(0.3), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .disabled(isChecking)
+
+                // Info
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Text("How GitHub Sync Works")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(DS.Color.textSecondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        InfoRow(icon: "arrow.up.to.line.circle.fill", text: "Publish — Create a new GitHub repo from a local skill")
+                        InfoRow(icon: "icloud.and.arrow.up.fill", text: "Push — Upload local changes to GitHub")
+                        InfoRow(icon: "icloud.and.arrow.down.fill", text: "Pull — Download remote changes from GitHub")
+                        InfoRow(icon: "exclamationmark.icloud.fill", text: "Diverged — Both sides changed; choose which to keep")
+                    }
+                }
+                .padding(DS.Spacing.md)
+                .background(DS.Color.canvas)
+                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                .overlay(
+                    RoundedRectangle(cornerRadius: DS.Radius.md)
+                        .stroke(DS.Color.borderLight, lineWidth: 1)
+                )
+            }
+            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.top, DS.Spacing.lg)
+            .padding(.bottom, DS.Spacing.xl)
+        }
+    }
+}
+
+private struct InfoRow: View {
+    let icon: String
+    let text: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: DS.Spacing.sm) {
+            Image(systemName: icon)
+                .font(.system(size: 12))
+                .foregroundStyle(DS.Color.accent)
+                .frame(width: 16)
+            Text(text)
+                .font(.system(size: 12))
+                .foregroundStyle(DS.Color.textSecondary)
+        }
     }
 }
 

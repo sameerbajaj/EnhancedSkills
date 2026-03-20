@@ -27,11 +27,12 @@ struct ContentView: View {
         .background(DS.Color.canvas)
         .task {
             await appState.refresh()
+            await appState.checkGHCLI()
         }
         .sheet(isPresented: $appState.showSettings) {
             _ = Task { await appState.refresh() }
         } content: {
-            SettingsView(settings: settings, updaterController: updaterController)
+            SettingsView(settings: settings, appState: appState, updaterController: updaterController)
                 .frame(minWidth: 600, minHeight: 420)
         }
         .sheet(isPresented: $appState.showImportSheet) {

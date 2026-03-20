@@ -25,6 +25,8 @@ struct DiscoveredSkill: Identifiable, Equatable {
     var previewExcerpt: String?
     var validationReport: ValidationReport?
     var versionHistory: SkillVersionHistory?
+    var githubOrigin: GitHubOrigin?
+    var githubSyncStatus: GitHubSyncStatus = .notLinked
 
     static func == (lhs: DiscoveredSkill, rhs: DiscoveredSkill) -> Bool {
         lhs.id == rhs.id

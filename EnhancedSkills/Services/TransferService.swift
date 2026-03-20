@@ -98,7 +98,7 @@ struct TransferService {
         let items = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
         for item in items {
             let name = item.lastPathComponent
-            if name == ".DS_Store" || name == ".versions" { continue }
+            if name == ".DS_Store" || name == ".versions" || name == ".git" || name == ".github.json" || name == ".gitignore" { continue }
             let dest = dst.appendingPathComponent(item.lastPathComponent)
             var isDir: ObjCBool = false
             fm.fileExists(atPath: item.path, isDirectory: &isDir)

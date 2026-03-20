@@ -63,6 +63,23 @@ struct SkillRecord: Identifiable, Equatable {
 
     var hasGuidelineIssues: Bool { totalViolationCount > 0 }
 
+    var githubOrigin: GitHubOrigin? {
+        skills.values.first(where: { $0.githubOrigin != nil })?.githubOrigin
+    }
+
+    var githubSyncStatus: GitHubSyncStatus {
+        let linkedSkills = skills.values.filter { $0.githubOrigin != nil }
+        guard !linkedSkills.isEmpty else { return .notLinked }
+        let statuses = linkedSkills.map { $0.githubSyncStatus }
+        for status in statuses { if case .diverged = status { return .diverged } }
+        for status in statuses { if case .error = status { return status } }
+        if statuses.contains(.checking) { return .checking }
+        if statuses.contains(.localAhead) { return .localAhead }
+        if statuses.contains(.remoteAhead) { return .remoteAhead }
+        if statuses.contains(.inSync) { return .inSync }
+        return .notLinked
+    }
+
     static func == (lhs: SkillRecord, rhs: SkillRecord) -> Bool {
         lhs.id == rhs.id &&
         lhs.displayName == rhs.displayName &&
@@ -70,6 +87,7 @@ struct SkillRecord: Identifiable, Equatable {
         lhs.status == rhs.status &&
         lhs.syncEnabled == rhs.syncEnabled &&
         lhs.totalViolationCount == rhs.totalViolationCount &&
+        lhs.githubSyncStatus == rhs.githubSyncStatus &&
         lhs.skills.keys == rhs.skills.keys &&
         Provider.allCases.allSatisfy { lhs.skills[$0]?.parseStatus == rhs.skills[$0]?.parseStatus }
     }

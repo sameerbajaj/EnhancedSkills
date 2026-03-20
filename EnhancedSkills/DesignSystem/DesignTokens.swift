@@ -59,6 +59,17 @@ enum DS {
         static let suggestion     = SwiftUI.Color(red: 0.40, green: 0.52, blue: 0.68)
         static let suggestionBg   = adaptive(light: (0.40, 0.52, 0.68), dark: (0.40, 0.52, 0.68),
                                              lightAlpha: 0.10, darkAlpha: 0.15)
+
+        // GitHub sync state colors
+        static let localAhead     = SwiftUI.Color(red: 0.18, green: 0.42, blue: 0.82) // blue — local has changes to push
+        static let localAheadBg   = adaptive(light: (0.18, 0.42, 0.82), dark: (0.18, 0.42, 0.82),
+                                             lightAlpha: 0.10, darkAlpha: 0.15)
+        static let remoteAhead    = SwiftUI.Color(red: 0.38, green: 0.22, blue: 0.72) // purple — remote has changes to pull
+        static let remoteAheadBg  = adaptive(light: (0.38, 0.22, 0.72), dark: (0.38, 0.22, 0.72),
+                                             lightAlpha: 0.10, darkAlpha: 0.15)
+        static let diverged       = SwiftUI.Color(red: 0.82, green: 0.40, blue: 0.10) // orange — both have changes
+        static let divergedBg     = adaptive(light: (0.82, 0.40, 0.10), dark: (0.82, 0.40, 0.10),
+                                             lightAlpha: 0.10, darkAlpha: 0.15)
     }
 
     enum Spacing {
