@@ -49,6 +49,10 @@ class SettingsStore {
         didSet { UserDefaults.standard.set(appearance.rawValue, forKey: "settings.appearance") }
     }
 
+    var usageTrackingEnabled: Bool {
+        didSet { UserDefaults.standard.set(usageTrackingEnabled, forKey: "settings.usageTrackingEnabled") }
+    }
+
     var autoCheckForUpdates: Bool {
         didSet { UserDefaults.standard.set(autoCheckForUpdates, forKey: "settings.autoCheckForUpdates") }
     }
@@ -82,6 +86,13 @@ class SettingsStore {
         anthropicAPIKey = defaults.string(forKey: "settings.anthropicAPIKey") ?? ""
         openAIAPIKey = defaults.string(forKey: "settings.openAIAPIKey") ?? ""
         googleAPIKey = defaults.string(forKey: "settings.googleAPIKey") ?? ""
+
+        // Usage tracking (default: on)
+        if defaults.object(forKey: "settings.usageTrackingEnabled") != nil {
+            usageTrackingEnabled = defaults.bool(forKey: "settings.usageTrackingEnabled")
+        } else {
+            usageTrackingEnabled = true
+        }
 
         // Update settings
         if defaults.object(forKey: "settings.autoCheckForUpdates") != nil {

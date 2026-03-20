@@ -297,6 +297,17 @@ struct AppearanceSettingsContent: View {
                     RoundedRectangle(cornerRadius: DS.Radius.md)
                         .stroke(DS.Color.borderLight, lineWidth: 1)
                 )
+
+                // Usage tracking toggle
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Toggle("Track skill usage", isOn: $settings.usageTrackingEnabled)
+                        .font(.system(size: 13))
+                        .foregroundStyle(DS.Color.text)
+                    Text("Detects when AI providers read your skills by monitoring file access times. Polls every 45 seconds with minimal overhead.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(.horizontal, DS.Spacing.xl)
             .padding(.top, DS.Spacing.lg)

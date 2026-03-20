@@ -26,23 +26,26 @@ struct ContentView: View {
         .frame(minWidth: 900, minHeight: 600)
         .background(DS.Color.canvas)
         .task {
+            appState.evaluationScoreStore.load()
             await appState.refresh()
             await appState.checkGHCLI()
 
-            // Start usage tracker
-            let tracker = UsageTracker()
-            tracker.onStatsUpdated = { [appState] db in
-                Task { @MainActor in
-                    appState.usageDatabase = db
+            // Start usage tracker if enabled
+            if settings.usageTrackingEnabled {
+                let tracker = UsageTracker()
+                tracker.onStatsUpdated = { [appState] db in
+                    Task { @MainActor in
+                        appState.usageDatabase = db
+                    }
                 }
-            }
-            let files = appState.allRecords.flatMap { record in
-                record.skills.map { (provider, skill) in
-                    (slug: record.slug, provider: provider.rawValue, url: skill.skillMarkdownPath)
+                let files = appState.allRecords.flatMap { record in
+                    record.skills.map { (provider, skill) in
+                        (slug: record.slug, provider: provider.rawValue, url: skill.skillMarkdownPath)
+                    }
                 }
+                tracker.start(skills: files)
+                appState.usageTracker = tracker
             }
-            tracker.start(skills: files)
-            appState.usageTracker = tracker
         }
         .onDisappear {
             appState.usageTracker?.stop()

@@ -23,6 +23,26 @@ struct SkillListView: View {
                     }
                     .buttonStyle(.plain)
                 }
+                Menu {
+                    ForEach(SortOption.allCases, id: \.self) { option in
+                        Button {
+                            state.sortOption = option
+                        } label: {
+                            HStack {
+                                Text(option.rawValue)
+                                if state.sortOption == option {
+                                    Image(systemName: "checkmark")
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Image(systemName: "arrow.up.arrow.down")
+                        .font(.system(size: 12))
+                        .foregroundStyle(state.sortOption == .alphabetical ? DS.Color.textTertiary : DS.Color.accent)
+                }
+                .menuStyle(.borderlessButton)
+                .fixedSize()
             }
             .padding(.horizontal, DS.Spacing.lg)
             .padding(.vertical, DS.Spacing.md)
@@ -56,7 +76,7 @@ struct SkillListView: View {
                 ScrollView {
                     LazyVStack(spacing: DS.Spacing.sm) {
                         ForEach(Array(state.filteredRecords.enumerated()), id: \.element.id) { idx, record in
-                            SkillCardView(record: record, isSelected: state.selectedRecord?.id == record.id, index: idx, usageCount: state.usageStats(for: record.slug)?.totalUsageCount ?? 0)
+                            SkillCardView(record: record, isSelected: state.selectedRecord?.id == record.id, index: idx, usageCount: state.usageStats(for: record.slug)?.totalUsageCount ?? 0, evaluationScore: state.evaluationScore(for: record.slug, currentHash: record.preferredPreviewSource?.contentHash))
                                 .onTapGesture {
                                     withAnimation(.easeInOut(duration: 0.15)) {
                                         state.selectedRecord = record

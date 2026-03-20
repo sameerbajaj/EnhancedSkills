@@ -5,6 +5,7 @@ struct SkillCardView: View {
     let isSelected: Bool
     var index: Int = 0
     var usageCount: Int = 0
+    var evaluationScore: Int? = nil
 
     @State private var appeared = false
     @State private var isHovered = false
@@ -61,6 +62,9 @@ struct SkillCardView: View {
                     .padding(.vertical, 2)
                     .background(DS.Color.accentLight)
                     .clipShape(Capsule())
+                }
+                if let score = evaluationScore {
+                    EvaluationScoreBadge(score: score)
                 }
                 Spacer()
                 if let date = record.lastModified {
@@ -188,5 +192,35 @@ struct ProviderBadge: View {
             .padding(.vertical, 2)
             .background(provider.badgeBgColor)
             .clipShape(Capsule())
+    }
+}
+
+struct EvaluationScoreBadge: View {
+    let score: Int
+
+    private var color: Color {
+        score >= 7 ? DS.Color.synced :
+        score >= 4 ? DS.Color.warning :
+        DS.Color.invalid
+    }
+
+    private var bgColor: Color {
+        score >= 7 ? DS.Color.syncedBg :
+        score >= 4 ? DS.Color.warningBg :
+        DS.Color.invalidBg
+    }
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Image(systemName: "circle.fill")
+                .font(.system(size: 5))
+            Text("\(score)/10")
+                .font(.system(size: 10, weight: .semibold))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, DS.Spacing.sm)
+        .padding(.vertical, 2)
+        .background(bgColor)
+        .clipShape(Capsule())
     }
 }

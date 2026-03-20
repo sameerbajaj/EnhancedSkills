@@ -11,6 +11,22 @@ enum FilterOption: String, CaseIterable, Equatable {
     case github = "GitHub"
 }
 
+enum SkillSortOrder: String, CaseIterable, Equatable {
+    case lastModified = "Last Modified"
+    case mostUsed = "Most Used"
+    case title = "Title"
+    case recentlyAccessed = "Recently Accessed"
+
+    var icon: String {
+        switch self {
+        case .lastModified:     return "clock"
+        case .mostUsed:         return "flame"
+        case .title:            return "textformat"
+        case .recentlyAccessed: return "clock.arrow.circlepath"
+        }
+    }
+}
+
 @Observable
 class AppState {
     let settings: SettingsStore
@@ -48,6 +64,12 @@ class AppState {
     var showSettings = false
     var showImportSheet = false
 
+    // MARK: - Sort
+    var sortOrder: SkillSortOrder = .lastModified
+
+    // MARK: - Evaluation Score Persistence
+    var evaluationScoreStore = EvaluationScoreStore()
+
     // MARK: - Usage Tracking
     var usageTracker: UsageTracker?
     var usageDatabase: SkillUsageDatabase?
@@ -81,6 +103,11 @@ class AppState {
         usageDatabase?.records[slug]
     }
 
+    func evaluationScore(for slug: String, currentHash: String?) -> Int? {
+        guard let hash = currentHash else { return nil }
+        return evaluationScoreStore.freshScore(for: slug, currentHash: hash)
+    }
+
     var filteredRecords: [SkillRecord] {
         var records = allRecords
 
@@ -110,6 +137,49 @@ class AppState {
                 ($0.description?.lowercased().contains(q) ?? false)
             }
         }
+
+        switch sortOption {
+        case .alphabetical:
+            records.sort { $0.displayName.localizedCaseInsensitiveCompare($1.displayName) == .orderedAscending }
+        case .scoreDescending:
+            records.sort { a, b in
+                let sa = evaluationScore(for: a.slug, currentHash: a.preferredPreviewSource?.contentHash)
+                let sb = evaluationScore(for: b.slug, currentHash: b.preferredPreviewSource?.contentHash)
+                switch (sa, sb) {
+                case let (l?, r?): return l != r ? l > r : a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
+                case (_?, nil): return true
+                case (nil, _?): return false
+                case (nil, nil): return a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
+                }
+            }
+        case .scoreAscending:
+            records.sort { a, b in
+                let sa = evaluationScore(for: a.slug, currentHash: a.preferredPreviewSource?.contentHash)
+                let sb = evaluationScore(for: b.slug, currentHash: b.preferredPreviewSource?.contentHash)
+                switch (sa, sb) {
+                case let (l?, r?): return l != r ? l < r : a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
+                case (_?, nil): return true
+                case (nil, _?): return false
+                case (nil, nil): return a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
+                }
+            }
+        case .lastModified:
+            records.sort { a, b in
+                switch (a.lastModified, b.lastModified) {
+                case let (l?, r?): return l > r
+                case (_?, nil): return true
+                case (nil, _?): return false
+                case (nil, nil): return a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
+                }
+            }
+        case .mostUsed:
+            records.sort { a, b in
+                let ua = usageStats(for: a.slug)?.totalUsageCount ?? 0
+                let ub = usageStats(for: b.slug)?.totalUsageCount ?? 0
+                return ua != ub ? ua > ub : a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
+            }
+        }
+
         return records
     }
 
@@ -276,6 +346,7 @@ class AppState {
             let result = try await SkillEvaluator.evaluate(skill: skill, backend: settings.aiBackend, apiKey: settings.apiKey(for: settings.aiBackend))
             if let hash = skill.contentHash {
                 evaluationCache[hash] = result
+                evaluationScoreStore.saveEvaluation(result, slug: slug, contentHash: hash)
             }
             evaluatingSkillSlugs.remove(slug)
             if selectedRecord?.slug == slug {

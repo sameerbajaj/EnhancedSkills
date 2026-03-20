@@ -58,9 +58,9 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
                 specURL: URL(string: "https://code.claude.com/docs/en/skills"),
                 bestPracticesURL: nil,
                 skillFileName: "SKILL.md",
-                requiredFrontmatterFields: [],
-                optionalFrontmatterFields: ["name", "description", "allowed-tools", "model", "context", "argument-hint", "disable-model-invocation", "user-invocable", "agent", "hooks"],
-                specSummary: "Claude Code skills use Markdown files with YAML frontmatter. Skills define reusable prompts and tool permissions for Claude Code. All frontmatter fields are optional; 'description' is recommended."
+                requiredFrontmatterFields: ["name", "description"],
+                optionalFrontmatterFields: ["allowed-tools", "model", "context", "argument-hint", "disable-model-invocation", "user-invocable", "agent", "hooks", "license", "compatibility", "metadata"],
+                specSummary: "Claude Code skills use Markdown files with YAML frontmatter. Skills define reusable prompts and tool permissions for Claude Code. 'name' and 'description' are required fields."
             )
         case .codex:
             return ProviderSpec(
