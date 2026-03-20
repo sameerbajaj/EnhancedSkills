@@ -39,6 +39,8 @@ class AppState {
     var evaluatingSkillSlugs: Set<String> = []
 
     var improvementState: ImprovementState = .idle
+    var improvementCache: [String: ImprovementState] = [:]  // slug -> state
+    var generatingSkillSlugs: Set<String> = []
     var selectedSuggestionIndices: Set<Int> = []
     var selectedSuggestionsCache: [String: Set<Int>] = [:]  // slug -> selected indices
 
@@ -269,23 +271,33 @@ class AppState {
     func resetEvaluationState() {
         // Save current selections before clearing
         saveCurrentSuggestionSelections()
+        if let slug = selectedRecord?.slug {
+            improvementCache.removeValue(forKey: slug)
+            generatingSkillSlugs.remove(slug)
+        }
         evaluationState = .idle
         improvementState = .idle
         selectedSuggestionIndices = []
     }
 
-    /// Called on skill switch — preserves cached evaluations and selections.
+    /// Called on skill switch — preserves cached evaluations, selections, and improvement state.
     func switchEvaluationContext(to record: SkillRecord) {
         // Save selections for the previous skill
         saveCurrentSuggestionSelections()
 
-        // Reset transient improvement state (generating/applying don't survive switching)
-        if case .previewing = improvementState {
-            // keep it — user might switch back
+        // Save current improvement state for the previous skill
+        if let prevSlug = selectedRecord?.slug {
+            improvementCache[prevSlug] = improvementState
+        }
+
+        // Restore improvement state for the new skill
+        if let cached = improvementCache[record.slug] {
+            improvementState = cached
+        } else if generatingSkillSlugs.contains(record.slug) {
+            improvementState = .generating
         } else {
             improvementState = .idle
         }
-        improvementState = .idle
 
         // Restore cached evaluation for the new skill
         if let skill = record.preferredPreviewSource,
@@ -310,12 +322,14 @@ class AppState {
     }
 
     func generateImprovements(for skill: DiscoveredSkill, evaluation: AIEvaluation) async {
+        let slug = selectedRecord?.slug ?? skill.folderName
         let selected = selectedSuggestionIndices.sorted().compactMap { idx -> String? in
             guard idx < evaluation.suggestions.count else { return nil }
             return evaluation.suggestions[idx]
         }
         guard !selected.isEmpty else { return }
 
+        generatingSkillSlugs.insert(slug)
         await MainActor.run { improvementState = .generating }
 
         do {
@@ -327,14 +341,29 @@ class AppState {
                 apiKey: settings.apiKey(for: settings.aiBackend)
             )
             let plan = SkillImprover.buildPlan(skill: skill, fileChanges: fileChanges, appliedSuggestions: selected)
-            await MainActor.run { improvementState = .previewing(plan) }
+            let resultState = ImprovementState.previewing(plan)
+            await MainActor.run {
+                generatingSkillSlugs.remove(slug)
+                improvementCache[slug] = resultState
+                if selectedRecord?.slug == slug {
+                    improvementState = resultState
+                }
+            }
         } catch {
-            await MainActor.run { improvementState = .failed(error.localizedDescription) }
+            let resultState = ImprovementState.failed(error.localizedDescription)
+            await MainActor.run {
+                generatingSkillSlugs.remove(slug)
+                improvementCache[slug] = resultState
+                if selectedRecord?.slug == slug {
+                    improvementState = resultState
+                }
+            }
         }
     }
 
     func applyImprovements() async {
         guard case .previewing(let plan) = improvementState else { return }
+        let slug = selectedRecord?.slug ?? plan.skill.folderName
         await MainActor.run { improvementState = .applying }
 
         do {
@@ -344,16 +373,29 @@ class AppState {
                 evaluationCache.removeValue(forKey: hash)
             }
             await MainActor.run {
-                improvementState = .applied
-                evaluationState = .idle
+                improvementCache.removeValue(forKey: slug)
+                if selectedRecord?.slug == slug {
+                    improvementState = .applied
+                    evaluationState = .idle
+                }
             }
             await refresh()
         } catch {
-            await MainActor.run { improvementState = .failed(error.localizedDescription) }
+            let resultState = ImprovementState.failed(error.localizedDescription)
+            await MainActor.run {
+                improvementCache[slug] = resultState
+                if selectedRecord?.slug == slug {
+                    improvementState = resultState
+                }
+            }
         }
     }
 
     func cancelImprovements() {
+        if let slug = selectedRecord?.slug {
+            improvementCache.removeValue(forKey: slug)
+            generatingSkillSlugs.remove(slug)
+        }
         improvementState = .idle
     }
 
