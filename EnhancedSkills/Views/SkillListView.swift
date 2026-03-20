@@ -254,6 +254,15 @@ struct SkillContextMenu: View {
                         Label("Pull from GitHub", systemImage: "icloud.and.arrow.down")
                     }
                 }
+            } else if record.githubOrigin?.syncDirection == .upstream {
+                Divider()
+                if let skill = record.preferredPreviewSource {
+                    Button {
+                        state.startRepublishing(skill: skill)
+                    } label: {
+                        Label("Publish as My Own…", systemImage: "arrow.up.to.line.circle")
+                    }
+                }
             }
         }
 

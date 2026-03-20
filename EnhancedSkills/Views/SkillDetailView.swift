@@ -339,7 +339,7 @@ struct GitHubSyncSection: View {
                         Image(systemName: origin.syncDirection == .origin ? "person.fill" : "arrow.down.circle")
                             .font(.system(size: 10))
                             .foregroundStyle(DS.Color.textTertiary)
-                        Text(origin.syncDirection == .origin ? "You own this repo" : "Imported from upstream")
+                        Text(origin.syncDirection == .origin ? "You own this repo" : "Imported from \(origin.owner)")
                             .font(.system(size: 11))
                             .foregroundStyle(DS.Color.textSecondary)
                     }
@@ -402,6 +402,29 @@ struct GitHubSyncSection: View {
                 .background(DS.Color.surface)
                 .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
                 .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
+
+                // "Publish as My Own…" for upstream-imported skills
+                if origin.syncDirection == .upstream && state.ghCLIAvailable && state.ghCLIAuthenticated {
+                    Button {
+                        state.startRepublishing(skill: skill)
+                    } label: {
+                        HStack(spacing: DS.Spacing.sm) {
+                            Image(systemName: "arrow.up.to.line.circle.fill")
+                                .font(.system(size: 14))
+                            Text("Publish as My Own…")
+                                .font(.system(size: 13, weight: .semibold))
+                            Spacer()
+                            Image(systemName: "arrow.right")
+                                .font(.system(size: 11))
+                        }
+                        .foregroundStyle(DS.Color.accent)
+                        .padding(DS.Spacing.md)
+                        .background(DS.Color.accentLight)
+                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                        .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.accent.opacity(0.3), lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
 
             } else if let skill = record.preferredPreviewSource {
                 // Not linked state

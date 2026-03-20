@@ -589,9 +589,26 @@ class AppState {
         guard !linkedSkills.isEmpty else { return }
         await withTaskGroup(of: Void.self) { group in
             for skill in linkedSkills {
-                group.addTask { await self.checkGitHubDivergence(for: skill) }
+                group.addTask {
+                    // Auto-initialize git if missing (handles skills imported before this fix)
+                    let gitDir = skill.skillPath.appendingPathComponent(".git")
+                    if !FileManager.default.fileExists(atPath: gitDir.path) {
+                        await self.setupGitHubForImportedSkill(skill)
+                    } else {
+                        await self.checkGitHubDivergence(for: skill)
+                    }
+                }
             }
         }
+    }
+
+    func startRepublishing(skill: DiscoveredSkill) {
+        let fm = FileManager.default
+        let githubJSONPath = skill.skillPath.appendingPathComponent(".github.json")
+        try? fm.removeItem(at: githubJSONPath)
+        let gitDir = skill.skillPath.appendingPathComponent(".git")
+        try? fm.removeItem(at: gitDir)
+        startPublishing(skill: skill)
     }
 
     func setupGitHubForImportedSkill(_ skill: DiscoveredSkill) async {
