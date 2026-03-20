@@ -106,8 +106,8 @@ struct HeroHeaderView: View {
             HStack(spacing: DS.Spacing.sm) {
                 headerIconButton(
                     id: "share",
-                    icon: "square.and.arrow.up",
-                    tooltip: showCopiedFeedback ? "Copied!" : "Copy skills summary to clipboard",
+                    icon: showCopiedFeedback ? "checkmark" : "doc.on.clipboard",
+                    tooltip: "Copy skills summary to clipboard",
                     disabled: state.allRecords.isEmpty
                 ) {
                     state.copySkillsSummaryToClipboard()
@@ -120,7 +120,7 @@ struct HeroHeaderView: View {
                 headerIconButton(
                     id: "export",
                     icon: "archivebox",
-                    tooltip: "Export all skills as zip",
+                    tooltip: "Export all skills as ZIP",
                     disabled: state.allRecords.isEmpty || state.isExporting
                 ) {
                     state.exportSkillsAsZip()
