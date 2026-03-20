@@ -16,16 +16,16 @@ struct GuidelinesValidator {
         GuidelineRule(
             id: "name-present",
             title: "Name field present",
-            detail: "Frontmatter must include a non-empty 'name' field",
-            severity: .error,
+            detail: "Frontmatter should include a 'name' field (optional but recommended)",
+            severity: .warning,
             provider: nil,
             isAutoFixable: true
         ),
         GuidelineRule(
             id: "description-present",
             title: "Description field present",
-            detail: "Frontmatter must include a non-empty 'description' field",
-            severity: .error,
+            detail: "Frontmatter should include a 'description' field (recommended — this is how the AI decides when to load the skill)",
+            severity: .warning,
             provider: nil,
             isAutoFixable: false
         ),

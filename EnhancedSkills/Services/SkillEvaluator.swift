@@ -44,36 +44,35 @@ enum SkillEvaluator {
     You are an expert skill quality evaluator for AI coding assistants. Analyze the provided SKILL.md content and return a structured JSON evaluation.
 
     ## Structure Rules
-    - Skill folder should use kebab-case (lowercase letters and hyphens only, no spaces/underscores/capitals)
+    - Skill folder should use kebab-case (lowercase letters, numbers, and hyphens only, no spaces/underscores/capitals)
     - SKILL.md must be exactly that name (case-sensitive)
     - YAML frontmatter must have --- delimiters at top and bottom
-    - Optional directories that improve quality: scripts/ (executable code), references/ (documentation), assets/ (templates/fonts/icons)
+    - Optional directories that improve quality: scripts/ (executable code), examples/ (sample usage)
+    - All frontmatter fields are optional; 'description' is recommended
 
     ## Name Field Rules
-    - Must be kebab-case only: lowercase letters and hyphens
+    - Lowercase letters, numbers, and hyphens only (max 64 characters)
     - No spaces, underscores, or capital letters
     - Should match the skill folder name
-    - Cannot start with "claude" or "anthropic" (reserved prefixes)
 
     ## Description Field Rules (CRITICAL - this is how the AI decides when to load the skill)
     - MUST include WHAT the skill does AND WHEN to use it (trigger phrases users would say)
-    - Under 1024 characters
-    - No XML angle brackets (< or >)
+    - Note: all skill descriptions share a combined budget of ~2% of context window (fallback 16,000 chars), so keep descriptions concise
     - Include specific trigger phrases users would actually type
     - Good example: "Analyzes Figma design files and generates developer handoff documentation. Use when user uploads .fig files, asks for 'design specs', 'component documentation', or 'design-to-code handoff'."
     - Bad examples: "Helps with projects." (too vague), "Creates sophisticated multi-page documentation systems." (no trigger phrases), "Implements the Project entity model." (too technical, no user triggers)
 
     ## Content Quality Rules
     - Include a "Gotchas" or "Common Issues" section capturing failure points the AI should avoid
-    - Use progressive disclosure: keep SKILL.md focused on core instructions, move detailed docs to references/ with explicit links
+    - Use progressive disclosure: keep SKILL.md focused on core instructions, move detailed docs to supporting files with explicit links
     - Avoid railroading: give the AI enough info but allow flexibility to adapt to the situation
     - Instructions should be specific and actionable, not vague ("Run `python scripts/validate.py --input {filename}`" not "Validate the data")
     - Include error handling guidance for common failure cases
     - Reference any bundled scripts or reference files explicitly so the AI knows they exist
-    - Keep SKILL.md under 5,000 words (very long files degrade performance)
-    - No XML angle brackets anywhere (security restriction - frontmatter appears in system prompt)
+    - Keep SKILL.md under 500 lines (very long files degrade performance)
+    - Consider using string substitutions ($ARGUMENTS, ${CLAUDE_SKILL_DIR}) for dynamic content
 
-    ## Skill Categories
+    ## Skill Categories (app-defined)
     Classify into exactly one of:
     1. Library & API Reference - explains how to correctly use a library, CLI, or SDK
     2. Product Verification - tests or verifies that code is working (often uses playwright, tmux, etc.)

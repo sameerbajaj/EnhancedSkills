@@ -55,12 +55,12 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
         switch self {
         case .claude:
             return ProviderSpec(
-                specURL: URL(string: "https://docs.anthropic.com/en/docs/claude-code/skills"),
+                specURL: URL(string: "https://code.claude.com/docs/en/skills"),
                 bestPracticesURL: nil,
                 skillFileName: "SKILL.md",
-                requiredFrontmatterFields: ["name", "description"],
-                optionalFrontmatterFields: ["allowed-tools", "model", "context", "argument-hint", "disable-model-invocation"],
-                specSummary: "Claude Code skills use Markdown files with YAML frontmatter. Skills define reusable prompts and tool permissions for Claude Code."
+                requiredFrontmatterFields: [],
+                optionalFrontmatterFields: ["name", "description", "allowed-tools", "model", "context", "argument-hint", "disable-model-invocation", "user-invocable", "agent", "hooks"],
+                specSummary: "Claude Code skills use Markdown files with YAML frontmatter. Skills define reusable prompts and tool permissions for Claude Code. All frontmatter fields are optional; 'description' is recommended."
             )
         case .codex:
             return ProviderSpec(
