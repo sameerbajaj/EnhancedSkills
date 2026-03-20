@@ -8,6 +8,7 @@ enum FilterOption: String, CaseIterable, Equatable {
     case synced = "Synced"
     case system = "System"
     case hasIssues = "Has Issues"
+    case github = "GitHub"
 }
 
 @Observable
@@ -90,6 +91,8 @@ class AppState {
             records = records.filter { $0.codexSkill?.isSystem == true }
         case .hasIssues:
             records = records.filter { $0.hasGuidelineIssues }
+        case .github:
+            records = records.filter { $0.githubOrigin != nil }
         }
         if !searchText.isEmpty {
             let q = searchText.lowercased()
@@ -105,6 +108,7 @@ class AppState {
     var syncedCount: Int { allRecords.filter { $0.status == .synced }.count }
     var needsSyncCount: Int { allRecords.filter { $0.status == .needsSync }.count }
     var issueCount: Int { allRecords.filter { $0.hasGuidelineIssues }.count }
+    var githubLinkedCount: Int { allRecords.filter { $0.githubOrigin != nil }.count }
 
     func refresh() async {
         await MainActor.run { isLoading = true; errorMessage = nil }

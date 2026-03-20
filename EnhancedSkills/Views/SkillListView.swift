@@ -229,6 +229,34 @@ struct SkillContextMenu: View {
             }
         }
 
+        // GitHub actions
+        if state.ghCLIAvailable && state.ghCLIAuthenticated {
+            if record.githubOrigin == nil {
+                if let skill = record.preferredPreviewSource {
+                    Divider()
+                    Button {
+                        state.startPublishing(skill: skill)
+                    } label: {
+                        Label("Publish to GitHub…", systemImage: "arrow.up.to.line.circle")
+                    }
+                }
+            } else if record.githubOrigin?.hasWriteAccess == true {
+                Divider()
+                if let skill = record.preferredPreviewSource {
+                    Button {
+                        Task { await state.pushToGitHub(skill: skill) }
+                    } label: {
+                        Label("Push to GitHub", systemImage: "icloud.and.arrow.up")
+                    }
+                    Button {
+                        Task { await state.pullFromGitHub(skill: skill) }
+                    } label: {
+                        Label("Pull from GitHub", systemImage: "icloud.and.arrow.down")
+                    }
+                }
+            }
+        }
+
         // Reveal per-provider submenu
         let available = Provider.allCases.compactMap { p in record.skills[p].map { (p, $0) } }
         if available.count > 1 {
