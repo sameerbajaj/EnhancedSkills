@@ -56,7 +56,7 @@ struct SkillListView: View {
                 ScrollView {
                     LazyVStack(spacing: DS.Spacing.sm) {
                         ForEach(Array(state.filteredRecords.enumerated()), id: \.element.id) { idx, record in
-                            SkillCardView(record: record, isSelected: state.selectedRecord?.id == record.id, index: idx)
+                            SkillCardView(record: record, isSelected: state.selectedRecord?.id == record.id, index: idx, usageCount: state.usageStats(for: record.slug)?.totalUsageCount ?? 0)
                                 .onTapGesture {
                                     withAnimation(.easeInOut(duration: 0.15)) {
                                         state.selectedRecord = record
@@ -79,7 +79,6 @@ struct SkillListView: View {
 
 struct HeroHeaderView: View {
     @Bindable var state: AppState
-    @State private var showCopiedFeedback = false
     @State private var hoveredButton: String?
 
     var body: some View {
@@ -102,24 +101,12 @@ struct HeroHeaderView: View {
                 }
             }
 
-            // Action row: icon-only buttons
+            // Action row: icon + label buttons
             HStack(spacing: DS.Spacing.sm) {
-                headerIconButton(
-                    id: "share",
-                    icon: showCopiedFeedback ? "checkmark" : "doc.on.clipboard",
-                    tooltip: "Copy skills summary to clipboard",
-                    disabled: state.allRecords.isEmpty
-                ) {
-                    state.copySkillsSummaryToClipboard()
-                    showCopiedFeedback = true
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
-                        showCopiedFeedback = false
-                    }
-                }
-
                 headerIconButton(
                     id: "export",
                     icon: "archivebox",
+                    label: "Export",
                     tooltip: "Export all skills as ZIP",
                     disabled: state.allRecords.isEmpty || state.isExporting
                 ) {
@@ -129,6 +116,7 @@ struct HeroHeaderView: View {
                 headerIconButton(
                     id: "import",
                     icon: "square.and.arrow.down",
+                    label: "Import",
                     tooltip: "Import skill from GitHub",
                     disabled: false
                 ) {
@@ -144,16 +132,21 @@ struct HeroHeaderView: View {
     }
 
     @ViewBuilder
-    private func headerIconButton(id: String, icon: String, tooltip: String, disabled: Bool, action: @escaping () -> Void) -> some View {
+    private func headerIconButton(id: String, icon: String, label: String, tooltip: String, disabled: Bool, action: @escaping () -> Void) -> some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 14, weight: .medium))
-                .foregroundStyle(disabled ? DS.Color.textTertiary : DS.Color.textSecondary)
-                .frame(width: 30, height: 26)
-                .background(
-                    RoundedRectangle(cornerRadius: DS.Radius.sm)
-                        .fill(hoveredButton == id ? DS.Color.border.opacity(0.5) : Color.clear)
-                )
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 13, weight: .medium))
+                Text(label)
+                    .font(.system(size: 11, weight: .medium))
+            }
+            .foregroundStyle(disabled ? DS.Color.textTertiary : DS.Color.textSecondary)
+            .padding(.horizontal, 8)
+            .frame(height: 26)
+            .background(
+                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                    .fill(hoveredButton == id ? DS.Color.border.opacity(0.5) : Color.clear)
+            )
         }
         .buttonStyle(.plain)
         .disabled(disabled)

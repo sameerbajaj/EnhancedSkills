@@ -191,6 +191,9 @@ struct DetailContent: View {
                     Divider()
                 }
 
+                // Usage Stats
+                UsageStatsSection(record: record, state: state)
+
                 // GitHub Sync
                 GitHubSyncSection(record: record, state: state)
 
@@ -273,6 +276,88 @@ struct DetailContent: View {
                 GitHubDivergenceSheet(skill: skill, origin: origin, state: state)
             }
         }
+    }
+}
+
+// MARK: - Usage Stats Section
+
+struct UsageStatsSection: View {
+    let record: SkillRecord
+    @Bindable var state: AppState
+
+    private var usageRecord: SkillUsageRecord? {
+        state.usageStats(for: record.slug)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            Text("USAGE STATS")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(DS.Color.textTertiary)
+
+            if let usage = usageRecord, usage.totalUsageCount > 0 {
+                HStack(spacing: DS.Spacing.xl) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("\(usage.totalUsageCount)")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(DS.Color.accent)
+                        Text("Total Uses")
+                            .font(.system(size: 10, weight: .medium))
+                            .foregroundStyle(DS.Color.textTertiary)
+                    }
+                    if let lastUsed = usage.lastUsedAcrossProviders {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(lastUsed, style: .relative)
+                                .font(.system(size: 14, weight: .semibold))
+                                .foregroundStyle(DS.Color.text)
+                            Text("Last Used")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(DS.Color.textTertiary)
+                        }
+                    }
+                }
+
+                // Per-provider breakdown
+                if usage.entries.count > 1 {
+                    VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                        ForEach(usage.entries.sorted(by: { $0.value.usageCount > $1.value.usageCount }), id: \.key) { providerKey, entry in
+                            if entry.usageCount > 0 {
+                                HStack {
+                                    if let provider = Provider(rawValue: providerKey) {
+                                        ProviderBadge(provider: provider)
+                                    } else {
+                                        Text(providerKey)
+                                            .font(.system(size: 10, weight: .medium))
+                                            .foregroundStyle(DS.Color.textSecondary)
+                                    }
+                                    Spacer()
+                                    Text("\(entry.usageCount) use\(entry.usageCount == 1 ? "" : "s")")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(DS.Color.textSecondary)
+                                }
+                            }
+                        }
+                    }
+                    .padding(DS.Spacing.md)
+                    .background(DS.Color.canvas)
+                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.sm).stroke(DS.Color.borderLight, lineWidth: 1))
+                }
+
+                Text("Tracked while app is running")
+                    .font(.system(size: 10))
+                    .foregroundStyle(DS.Color.textTertiary)
+            } else {
+                Text("No usage detected yet")
+                    .font(.system(size: 12))
+                    .foregroundStyle(DS.Color.textTertiary)
+                Text("Tracked while app is running")
+                    .font(.system(size: 10))
+                    .foregroundStyle(DS.Color.textTertiary)
+            }
+        }
+
+        Divider()
     }
 }
 

@@ -48,6 +48,10 @@ class AppState {
     var showSettings = false
     var showImportSheet = false
 
+    // MARK: - Usage Tracking
+    var usageTracker: UsageTracker?
+    var usageDatabase: SkillUsageDatabase?
+
     var isExporting = false
     var exportError: String?
 
@@ -72,6 +76,10 @@ class AppState {
     }
 
     func skillCount(for provider: Provider) -> Int { skillCounts[provider] ?? 0 }
+
+    func usageStats(for slug: String) -> SkillUsageRecord? {
+        usageDatabase?.records[slug]
+    }
 
     var filteredRecords: [SkillRecord] {
         var records = allRecords
@@ -142,6 +150,12 @@ class AppState {
                 }
             }
 
+            // Mark all SKILL.md files as self-read before merging (discovery reads them)
+            let allMarkdownURLs = allSkills.values.flatMap { skills in
+                skills.map(\.skillMarkdownPath)
+            }
+            usageTracker?.markSelfRead(urls: allMarkdownURLs)
+
             let merged = SkillInventory.merge(skillsByProvider: allSkills, settings: settings)
             await MainActor.run {
                 let prevSlug = selectedRecord?.slug
@@ -154,6 +168,9 @@ class AppState {
                     selectedRecord = merged.first
                 }
             }
+            // Update usage tracker with current skill files
+            usageTracker?.updateTrackedFiles(from: merged)
+
             // Check GitHub divergence for linked skills in background
             Task { await checkAllGitHubDivergence() }
         } catch {
@@ -244,6 +261,7 @@ class AppState {
     }
 
     func evaluateSkill(_ skill: DiscoveredSkill) async {
+        usageTracker?.markSelfRead(url: skill.skillMarkdownPath)
         let slug = selectedRecord?.slug ?? skill.folderName
         evaluatingSkillSlugs.insert(slug)
         evaluationState = .evaluating
@@ -326,6 +344,7 @@ class AppState {
     }
 
     func generateImprovements(for skill: DiscoveredSkill, evaluation: AIEvaluation) async {
+        usageTracker?.markSelfRead(url: skill.skillMarkdownPath)
         let slug = selectedRecord?.slug ?? skill.folderName
         let selected = selectedSuggestionIndices.sorted().compactMap { idx -> String? in
             guard idx < evaluation.suggestions.count else { return nil }

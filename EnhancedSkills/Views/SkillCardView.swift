@@ -4,6 +4,7 @@ struct SkillCardView: View {
     let record: SkillRecord
     let isSelected: Bool
     var index: Int = 0
+    var usageCount: Int = 0
 
     @State private var appeared = false
     @State private var isHovered = false
@@ -48,6 +49,19 @@ struct SkillCardView: View {
                     .clipShape(Capsule())
                 }
                 GitHubSyncBadge(status: record.githubSyncStatus)
+                if usageCount > 0 {
+                    HStack(spacing: 3) {
+                        Image(systemName: "bolt.fill")
+                            .font(.system(size: 9))
+                        Text("\(usageCount)")
+                            .font(.system(size: 10, weight: .semibold))
+                    }
+                    .foregroundStyle(DS.Color.accent)
+                    .padding(.horizontal, DS.Spacing.sm)
+                    .padding(.vertical, 2)
+                    .background(DS.Color.accentLight)
+                    .clipShape(Capsule())
+                }
                 Spacer()
                 if let date = record.lastModified {
                     Text(date, style: .relative)
