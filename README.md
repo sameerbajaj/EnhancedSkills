@@ -68,15 +68,7 @@ Gemini and Antigravity can be enabled in **Settings** (`⌘,`).
 2. Open the DMG and drag **EnhancedSkills.app** to your Applications folder.
 3. Launch the app.
 
-### Bypassing Gatekeeper (unsigned build)
-
-EnhancedSkills is not yet signed with an Apple Developer certificate. macOS will block the app from opening on first launch. Run this command once to clear the quarantine flag:
-
-```bash
-sudo xattr -rd com.apple.quarantine /Applications/EnhancedSkills.app
-```
-
-Then launch the app normally.
+The app is signed and notarized with Apple. It will open without any Gatekeeper warnings.
 
 ---
 
