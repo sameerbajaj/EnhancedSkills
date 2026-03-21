@@ -27,6 +27,7 @@ struct ContentView: View {
         .background(DS.Color.canvas)
         .task {
             appState.evaluationScoreStore.load()
+            appState.evaluationCache = appState.evaluationScoreStore.allFreshEvaluations()
             await appState.refresh()
             await appState.checkGHCLI()
 

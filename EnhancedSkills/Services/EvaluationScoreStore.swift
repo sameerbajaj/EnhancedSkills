@@ -41,6 +41,26 @@ class EvaluationScoreStore {
         return record.overallScore
     }
 
+    /// Returns the full evaluation only if the stored content hash matches the current hash.
+    func freshEvaluation(for slug: String, currentHash: String) -> AIEvaluation? {
+        guard let record = database.records[slug],
+              record.contentHash == currentHash else {
+            return nil
+        }
+        return record.evaluation
+    }
+
+    /// Returns all fresh evaluations keyed by contentHash, for bulk cache restoration.
+    func allFreshEvaluations() -> [String: AIEvaluation] {
+        var result: [String: AIEvaluation] = [:]
+        for record in database.records.values {
+            if let eval = record.evaluation {
+                result[record.contentHash] = eval
+            }
+        }
+        return result
+    }
+
     /// Upserts an evaluation record and persists to disk.
     func saveEvaluation(_ eval: AIEvaluation, slug: String, contentHash: String) {
         let record = EvaluationScoreRecord(
@@ -50,7 +70,8 @@ class EvaluationScoreStore {
             structureScore: eval.structureScore,
             descriptionScore: eval.descriptionScore,
             contentQualityScore: eval.contentQualityScore,
-            evaluatedAt: Date()
+            evaluatedAt: Date(),
+            evaluation: eval
         )
         database.records[slug] = record
         save()

@@ -8,6 +8,7 @@ struct EvaluationScoreRecord: Codable {
     let descriptionScore: Int
     let contentQualityScore: Int
     let evaluatedAt: Date
+    let evaluation: AIEvaluation?
 }
 
 struct EvaluationScoreDatabase: Codable {

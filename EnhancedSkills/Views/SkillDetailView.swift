@@ -186,13 +186,61 @@ struct DetailContent: View {
 
                 Divider()
 
-                // Two-column layout: Metadata/Usage/GitHub (left) + AI Eval/Preview (right)
-                DetailColumnsLayout(record: record, state: state)
+                // Metadata chips (conditional)
+                if let source = record.preferredPreviewSource,
+                   source.hasScripts || source.hasReferences || source.isSystem || source.parseStatus != .ok {
+                    VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                        Text("METADATA")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(DS.Color.textTertiary)
+                        HStack(spacing: DS.Spacing.sm) {
+                            if source.isSystem {
+                                MetaChip(label: "System", icon: "gear")
+                            }
+                            if source.hasScripts {
+                                MetaChip(label: "Scripts", icon: "terminal")
+                            }
+                            if source.hasReferences {
+                                MetaChip(label: "References", icon: "link")
+                            }
+                            if source.parseStatus != .ok {
+                                MetaChip(label: source.parseStatus.rawValue.capitalized, icon: "exclamationmark.triangle", color: DS.Color.invalid)
+                            }
+                        }
+                    }
+                    Divider()
+                }
+
+                UsageStatsSection(record: record, state: state)
+                GitHubSyncSection(record: record, state: state)
 
                 Divider()
 
                 // Guidelines (collapsed by default)
                 CollapsibleGuidelinesSection(record: record, state: state)
+
+                Divider()
+
+                // AI Evaluation (full width)
+                AIEvaluationSection(record: record, state: state)
+
+                // Preview
+                if let excerpt = record.preferredPreviewSource?.previewExcerpt {
+                    Divider()
+                    VStack(alignment: .leading, spacing: DS.Spacing.md) {
+                        Text("PREVIEW")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(DS.Color.textTertiary)
+                        Text(excerpt)
+                            .font(.system(size: 13))
+                            .foregroundStyle(DS.Color.textSecondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(DS.Spacing.lg)
+                            .background(DS.Color.canvas)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                            .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
+                    }
+                }
 
                 Divider()
 
@@ -1216,96 +1264,6 @@ struct AIIssueRow: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .padding(.leading, DS.Spacing.xl)
         }
-    }
-}
-
-// MARK: - Two-Column Layout
-
-struct DetailColumnsLayout: View {
-    let record: SkillRecord
-    @Bindable var state: AppState
-
-    var body: some View {
-        GeometryReader { geo in
-            if geo.size.width > 520 {
-                HStack(alignment: .top, spacing: DS.Spacing.xl) {
-                    // Left column: Metadata, Usage, GitHub
-                    VStack(alignment: .leading, spacing: DS.Spacing.xxl) {
-                        leftColumnContent
-                    }
-                    .frame(maxWidth: .infinity)
-
-                    // Right column: AI Evaluation, Preview
-                    VStack(alignment: .leading, spacing: DS.Spacing.xxl) {
-                        AIEvaluationSection(record: record, state: state)
-                        previewContent
-                    }
-                    .frame(maxWidth: .infinity)
-                }
-            } else {
-                VStack(alignment: .leading, spacing: DS.Spacing.xxl) {
-                    leftColumnContent
-                    Divider()
-                    AIEvaluationSection(record: record, state: state)
-                    previewContent
-                }
-            }
-        }
-        .frame(minHeight: columnMinHeight)
-    }
-
-    @ViewBuilder
-    private var leftColumnContent: some View {
-        let source = record.preferredPreviewSource
-        if source?.hasScripts == true || source?.hasReferences == true || source?.isSystem == true || source?.parseStatus != .ok {
-            VStack(alignment: .leading, spacing: DS.Spacing.sm) {
-                Text("METADATA")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(DS.Color.textTertiary)
-                HStack(spacing: DS.Spacing.sm) {
-                    if source?.isSystem == true {
-                        MetaChip(label: "System", icon: "gear")
-                    }
-                    if source?.hasScripts == true {
-                        MetaChip(label: "Scripts", icon: "terminal")
-                    }
-                    if source?.hasReferences == true {
-                        MetaChip(label: "References", icon: "link")
-                    }
-                    if let ps = source?.parseStatus, ps != .ok {
-                        MetaChip(label: ps.rawValue.capitalized, icon: "exclamationmark.triangle", color: DS.Color.invalid)
-                    }
-                }
-            }
-            Divider()
-        }
-
-        UsageStatsSection(record: record, state: state)
-        GitHubSyncSection(record: record, state: state)
-    }
-
-    @ViewBuilder
-    private var previewContent: some View {
-        if let excerpt = record.preferredPreviewSource?.previewExcerpt {
-            VStack(alignment: .leading, spacing: DS.Spacing.md) {
-                Text("PREVIEW")
-                    .font(.system(size: 10, weight: .semibold))
-                    .foregroundStyle(DS.Color.textTertiary)
-                Text(excerpt)
-                    .font(.system(size: 13))
-                    .foregroundStyle(DS.Color.textSecondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(DS.Spacing.lg)
-                    .background(DS.Color.canvas)
-                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
-                    .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
-            }
-        }
-    }
-
-    private var columnMinHeight: CGFloat {
-        // Estimate minimum height to prevent GeometryReader from collapsing
-        300
     }
 }
 
