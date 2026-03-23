@@ -53,12 +53,25 @@ final class UsageTracker {
 
     func markSelfRead(url: URL) {
         selfReadTimestamps[url] = Date()
+        // Advance lastKnownAtime so the next poll doesn't count this as genuine usage
+        if let file = trackedFiles.first(where: { $0.url == url }),
+           let atime = Self.fileAtime(url) {
+            database.records[file.slug]?.entries[file.provider]?.lastKnownAtime = atime
+        }
     }
 
     func markSelfRead(urls: [URL]) {
         let now = Date()
+        let urlSet = Set(urls)
         for url in urls {
             selfReadTimestamps[url] = now
+        }
+        // Advance lastKnownAtime for all known tracked files so the next poll
+        // doesn't count the app's own reads as genuine usage
+        for file in trackedFiles where urlSet.contains(file.url) {
+            if let atime = Self.fileAtime(file.url) {
+                database.records[file.slug]?.entries[file.provider]?.lastKnownAtime = atime
+            }
         }
     }
 
@@ -120,6 +133,12 @@ final class UsageTracker {
                     firstSeen: now,
                     lastKnownAtime: atime
                 )
+            } else {
+                // Always sync lastKnownAtime on startup — the initial refresh() reads all
+                // files before the tracker exists (so markSelfRead is never called), and
+                // stale baseline values from a previous session would cause the first poll
+                // to count those reads as genuine usage across every provider.
+                database.records[key]?.entries[file.provider]?.lastKnownAtime = atime
             }
         }
         database.lastPollTime = now
