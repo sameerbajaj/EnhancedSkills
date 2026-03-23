@@ -141,8 +141,18 @@ struct HeroHeaderView: View {
                 }
                 Spacer()
                 HStack(spacing: DS.Spacing.xl) {
-                    StatBadge(label: "Synced", value: state.syncedCount, color: DS.Color.synced)
-                    StatBadge(label: "Needs Sync", value: state.needsSyncCount, color: DS.Color.needsSync)
+                    StatBadge(label: "Synced", value: state.syncedCount, color: DS.Color.synced, isActive: state.activeFilter == .synced && state.providerFilter == nil) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            state.providerFilter = nil
+                            state.activeFilter = state.activeFilter == .synced ? .all : .synced
+                        }
+                    }
+                    StatBadge(label: "Needs Sync", value: state.needsSyncCount, color: DS.Color.needsSync, isActive: state.activeFilter == .needsSync && state.providerFilter == nil) {
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            state.providerFilter = nil
+                            state.activeFilter = state.activeFilter == .needsSync ? .all : .needsSync
+                        }
+                    }
                 }
             }
 
@@ -342,16 +352,36 @@ struct StatBadge: View {
     let label: String
     let value: Int
     let color: Color
+    var isActive: Bool = false
+    var action: (() -> Void)? = nil
+
+    @State private var isHovered = false
 
     var body: some View {
-        VStack(alignment: .trailing, spacing: 2) {
+        let content = VStack(alignment: .trailing, spacing: 2) {
             Text("\(value)")
                 .font(.system(size: 22, weight: .bold))
-                .foregroundStyle(color)
+                .foregroundStyle(isActive ? color : color.opacity(isHovered ? 1.0 : 0.85))
                 .contentTransition(.numericText())
             Text(label)
                 .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(DS.Color.textTertiary)
+                .foregroundStyle(isActive ? DS.Color.textSecondary : DS.Color.textTertiary)
+                .underline(isActive)
+        }
+        .padding(.horizontal, DS.Spacing.sm)
+        .padding(.vertical, DS.Spacing.xs)
+        .background(
+            RoundedRectangle(cornerRadius: DS.Radius.sm)
+                .fill(isActive ? color.opacity(0.12) : (isHovered ? DS.Color.border.opacity(0.4) : Color.clear))
+        )
+
+        if let action {
+            Button(action: action) { content }
+                .buttonStyle(.plain)
+                .onHover { isHovered = $0 }
+                .help("Filter by \(label)")
+        } else {
+            content
         }
     }
 }
