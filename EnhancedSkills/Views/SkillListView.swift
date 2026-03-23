@@ -221,6 +221,14 @@ struct SkillContextMenu: View {
         // Copy to missing configured providers
         let missingProviders = state.settings.configuredProviders.filter { record.skills[$0] == nil }
         if !missingProviders.isEmpty && !record.skills.isEmpty {
+            if missingProviders.count >= 2 {
+                Button {
+                    state.selectedRecord = record
+                    state.startTransferToAll()
+                } label: {
+                    Label("Copy to All Providers", systemImage: "arrow.right.circle.fill")
+                }
+            }
             ForEach(missingProviders) { dest in
                 Button {
                     state.selectedRecord = record

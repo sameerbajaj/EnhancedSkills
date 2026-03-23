@@ -45,6 +45,7 @@ class AppState {
     var errorMessage: String?
 
     var transferPlan: SkillTransferPlan?
+    var transferPlans: [SkillTransferPlan]?
     var showTransferSheet = false
     var isTransferring = false
     var transferError: String?
@@ -298,6 +299,35 @@ class AppState {
         do {
             try TransferService.execute(plan: plan)
             await MainActor.run { isTransferring = false; showTransferSheet = false; transferPlan = nil }
+            await refresh()
+        } catch {
+            await MainActor.run { isTransferring = false; transferError = error.localizedDescription }
+        }
+    }
+
+    func startTransferToAll() {
+        guard let record = selectedRecord else { return }
+        let missingProviders = settings.configuredProviders.filter { record.skills[$0] == nil }
+        guard missingProviders.count >= 2 else { return }
+        do {
+            let plans = try missingProviders.map { dest in
+                try TransferService.buildPlan(for: record, to: dest, destinationRoot: settings.rootPath(for: dest))
+            }
+            transferPlans = plans
+            showTransferSheet = true
+        } catch {
+            transferError = error.localizedDescription
+        }
+    }
+
+    func confirmTransferAll() async {
+        guard let plans = transferPlans else { return }
+        await MainActor.run { isTransferring = true; transferError = nil }
+        do {
+            for plan in plans {
+                try TransferService.execute(plan: plan)
+            }
+            await MainActor.run { isTransferring = false; showTransferSheet = false; transferPlans = nil }
             await refresh()
         } catch {
             await MainActor.run { isTransferring = false; transferError = error.localizedDescription }

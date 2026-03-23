@@ -256,8 +256,10 @@ struct DetailContent: View {
             state.switchEvaluationContext(to: record)
         }
         .sheet(isPresented: $state.showTransferSheet) {
-            if let plan = state.transferPlan {
-                TransferConfirmationSheet(plan: plan, state: state)
+            if let plans = state.transferPlans {
+                TransferConfirmationSheet(plan: nil, plans: plans, state: state)
+            } else if let plan = state.transferPlan {
+                TransferConfirmationSheet(plan: plan, plans: nil, state: state)
             }
         }
         .sheet(isPresented: $state.showPublishSheet) {
