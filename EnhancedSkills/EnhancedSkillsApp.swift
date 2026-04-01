@@ -27,5 +27,6 @@ struct EnhancedSkillsApp: App {
             SettingsView(settings: settingsStore, updaterController: updaterController)
                 .preferredColorScheme(settingsStore.appearance.colorScheme)
         }
+        .defaultSize(width: 960, height: 700)
     }
 }

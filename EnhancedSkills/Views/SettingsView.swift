@@ -85,7 +85,7 @@ struct SettingsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .background(DS.Color.surface)
         }
-        .frame(minWidth: 820, minHeight: 640)
+        .frame(minWidth: 900, idealWidth: 960, minHeight: 660, idealHeight: 700)
     }
 }
 
@@ -563,14 +563,14 @@ struct ProvidersSettingsContent: View {
                     ProviderSettingsRow(provider: provider, settings: settings)
                 }
             }
-            .padding(.horizontal, DS.Spacing.xl)
+            .padding(.horizontal, DS.Spacing.lg)
             .padding(.top, DS.Spacing.lg)
             .padding(.bottom, DS.Spacing.md)
 
             Text("Gemini and Antigravity are disabled by default. Enable them and set a path to start syncing.")
                 .font(.system(size: 11))
                 .foregroundStyle(DS.Color.textTertiary)
-                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.horizontal, DS.Spacing.lg)
                 .padding(.bottom, DS.Spacing.lg)
         }
     }
@@ -738,7 +738,10 @@ struct ProviderSettingsRow: View {
                     .onChange(of: localPath) { _, newValue in
                         settings.setPath(newValue, for: provider)
                     }
+                    .layoutPriority(1)
+                }
 
+                HStack(spacing: DS.Spacing.sm) {
                     Button {
                         browseForFolder()
                     } label: {
@@ -775,13 +778,14 @@ struct ProviderSettingsRow: View {
                         }
                         .buttonStyle(.plain)
                     }
-                }
 
-                if let specURL = provider.spec.specURL {
-                    Link(destination: specURL) {
-                        Label("View Skill Specification", systemImage: "doc.text")
-                            .font(.system(size: 11))
-                            .foregroundStyle(DS.Color.accent)
+                    if let specURL = provider.spec.specURL {
+                        Spacer()
+                        Link(destination: specURL) {
+                            Label("View Skill Specification", systemImage: "doc.text")
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.accent)
+                        }
                     }
                 }
             }
