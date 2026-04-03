@@ -12,44 +12,34 @@ struct ContentView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            SidebarView(state: appState)
+        ZStack {
+            HStack(spacing: 0) {
+                SidebarView(state: appState)
 
-            Divider()
+                Divider()
 
-            SkillListView(state: appState)
+                SkillListView(state: appState)
 
-            Divider()
+                Divider()
 
-            SkillDetailView(state: appState)
+                SkillDetailView(state: appState)
+            }
+
+            if !settings.hasCompletedOnboarding {
+                OnboardingOverlay(settings: settings)
+                    .transition(.opacity)
+            }
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(DS.Color.canvas)
+        .animation(.easeInOut(duration: 0.35), value: settings.hasCompletedOnboarding)
         .task {
-            appState.evaluationScoreStore.load()
-            appState.evaluationCache = appState.evaluationScoreStore.allFreshEvaluations()
-            await appState.refresh()
-            await appState.checkGHCLI()
-
-            // Start usage tracker if enabled
-            if settings.usageTrackingEnabled {
-                let tracker = UsageTracker()
-                tracker.onStatsUpdated = { [appState] db in
-                    Task { @MainActor in
-                        appState.usageDatabase = db
-                    }
-                }
-                let files = appState.allRecords.flatMap { record in
-                    record.skills.map { (provider, skill) in
-                        (slug: record.slug, provider: provider.rawValue, url: skill.skillMarkdownPath)
-                    }
-                }
-                tracker.start(skills: files)
-                appState.usageTracker = tracker
-            }
+            guard settings.hasCompletedOnboarding else { return }
+            await performStartup()
         }
-        .onDisappear {
-            appState.usageTracker?.stop()
+        .onChange(of: settings.hasCompletedOnboarding) { _, newValue in
+            guard newValue else { return }
+            Task { await performStartup() }
         }
         .sheet(isPresented: $appState.showSettings) {
             _ = Task { await appState.refresh() }
@@ -62,6 +52,29 @@ struct ContentView: View {
                 Task { await appState.refresh() }
             }
             .frame(minWidth: 520, minHeight: 400)
+        }
+    }
+
+    private func performStartup() async {
+        appState.evaluationScoreStore.load()
+        appState.evaluationCache = appState.evaluationScoreStore.allFreshEvaluations()
+        await appState.refresh()
+        await appState.checkGHCLI()
+
+        if settings.usageTrackingEnabled {
+            let tracker = UsageTracker()
+            tracker.onStatsUpdated = { [appState] db in
+                Task { @MainActor in
+                    appState.usageDatabase = db
+                }
+            }
+            let files = appState.allRecords.flatMap { record in
+                record.skills.map { (provider, skill) in
+                    (slug: record.slug, provider: provider.rawValue, url: skill.skillMarkdownPath)
+                }
+            }
+            tracker.start(skills: files)
+            appState.usageTracker = tracker
         }
     }
 }

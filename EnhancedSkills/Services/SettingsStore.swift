@@ -53,6 +53,10 @@ class SettingsStore {
         didSet { UserDefaults.standard.set(usageTrackingEnabled, forKey: "settings.usageTrackingEnabled") }
     }
 
+    var hasCompletedOnboarding: Bool {
+        didSet { UserDefaults.standard.set(hasCompletedOnboarding, forKey: "settings.hasCompletedOnboarding") }
+    }
+
     var autoCheckForUpdates: Bool {
         didSet { UserDefaults.standard.set(autoCheckForUpdates, forKey: "settings.autoCheckForUpdates") }
     }
@@ -106,6 +110,12 @@ class SettingsStore {
             notifyOnUpdates = true
         }
         lastUpdateCheckDate = defaults.object(forKey: "settings.lastUpdateCheckDate") as? Date
+
+        if defaults.object(forKey: "settings.hasCompletedOnboarding") != nil {
+            hasCompletedOnboarding = defaults.bool(forKey: "settings.hasCompletedOnboarding")
+        } else {
+            hasCompletedOnboarding = false
+        }
 
         for provider in Provider.allCases {
             let savedPath = defaults.string(forKey: "settings.\(provider.rawValue)Path")

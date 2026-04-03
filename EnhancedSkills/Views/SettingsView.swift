@@ -308,6 +308,22 @@ struct AppearanceSettingsContent: View {
                         .foregroundStyle(DS.Color.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
+
+                // Onboarding reset
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    Button {
+                        settings.hasCompletedOnboarding = false
+                    } label: {
+                        Text("Show Welcome Screen Again")
+                            .font(.system(size: 13))
+                            .foregroundStyle(DS.Color.accent)
+                    }
+                    .buttonStyle(.plain)
+                    Text("Re-run the onboarding flow to reconfigure providers and AI backend.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(DS.Color.textTertiary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
             .padding(.horizontal, DS.Spacing.xl)
             .padding(.top, DS.Spacing.lg)
