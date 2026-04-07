@@ -303,7 +303,7 @@ struct AppearanceSettingsContent: View {
                     Toggle("Track skill usage", isOn: $settings.usageTrackingEnabled)
                         .font(.system(size: 13))
                         .foregroundStyle(DS.Color.text)
-                    Text("Detects when AI providers read your skills by monitoring file access times. Polls every 45 seconds with minimal overhead.")
+                    Text("Detects skill usage from CLI session signals with file-access fallback. Polls every 45 seconds with minimal overhead.")
                         .font(.system(size: 11))
                         .foregroundStyle(DS.Color.textTertiary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -41,6 +41,9 @@ struct ContentView: View {
             guard newValue else { return }
             Task { await performStartup() }
         }
+        .onChange(of: settings.usageTrackingEnabled) { _, _ in
+            Task { await configureUsageTracking() }
+        }
         .sheet(isPresented: $appState.showSettings) {
             _ = Task { await appState.refresh() }
         } content: {
@@ -60,22 +63,35 @@ struct ContentView: View {
         appState.evaluationCache = appState.evaluationScoreStore.allFreshEvaluations()
         await appState.refresh()
         await appState.checkGHCLI()
+        await configureUsageTracking()
+    }
 
-        if settings.usageTrackingEnabled {
-            let tracker = UsageTracker()
-            tracker.onStatsUpdated = { [appState] db in
-                Task { @MainActor in
-                    appState.usageDatabase = db
-                }
-            }
-            let files = appState.allRecords.flatMap { record in
-                record.skills.map { (provider, skill) in
-                    (slug: record.slug, provider: provider.rawValue, url: skill.skillMarkdownPath)
-                }
-            }
-            tracker.start(skills: files)
-            appState.usageTracker = tracker
+    @MainActor
+    private func configureUsageTracking() {
+        guard settings.usageTrackingEnabled else {
+            appState.usageTracker?.stop()
+            appState.usageTracker = nil
+            return
         }
+
+        if let existingTracker = appState.usageTracker {
+            existingTracker.updateTrackedFiles(from: appState.allRecords)
+            return
+        }
+
+        let tracker = UsageTracker()
+        tracker.onStatsUpdated = { [appState] db in
+            Task { @MainActor in
+                appState.usageDatabase = db
+            }
+        }
+        let files = appState.allRecords.flatMap { record in
+            record.skills.map { (provider, skill) in
+                (slug: record.slug, provider: provider.rawValue, url: skill.skillMarkdownPath)
+            }
+        }
+        tracker.start(skills: files)
+        appState.usageTracker = tracker
     }
 }
 
