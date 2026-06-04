@@ -109,6 +109,12 @@ class AppState {
     var divergingSkill: DiscoveredSkill?
     var divergingOrigin: GitHubOrigin?
 
+    // MARK: - GitHub Linking State
+    var isLinking = false
+    var linkError: String?
+    var showLinkSheet = false
+    var linkingSkill: DiscoveredSkill?
+
     init(settings: SettingsStore) {
         self.settings = settings
     }
@@ -782,6 +788,65 @@ class AppState {
             // Non-fatal: git setup failed
         }
         await checkGitHubDivergence(for: skill)
+    }
+
+    func startLinking(skill: DiscoveredSkill) {
+        linkingSkill = skill
+        linkError = nil
+        showLinkSheet = true
+    }
+
+    @discardableResult
+    func linkToGitHub(
+        skill: DiscoveredSkill,
+        repoURL: String,
+        branch: String,
+        syncDirection: SyncDirection
+    ) async throws -> GitHubOrigin {
+        await MainActor.run { isLinking = true; linkError = nil }
+        do {
+            guard let parsed = GitHubOrigin.parseOwnerRepo(from: repoURL) else {
+                throw GitHubSyncError.invalidRepoURL(repoURL)
+            }
+            
+            // Check write access if gh CLI is available and authenticated
+            let writeAccess: Bool
+            if ghCLIAvailable && ghCLIAuthenticated {
+                writeAccess = await GHCLIRunner.checkWriteAccess(owner: parsed.owner, repoName: parsed.repoName)
+            } else {
+                writeAccess = (syncDirection == .origin)
+            }
+            
+            let finalBranch = branch.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "main" : branch
+            
+            let origin = GitHubOrigin(
+                repoURL: "https://github.com/\(parsed.owner)/\(parsed.repoName)",
+                owner: parsed.owner,
+                repoName: parsed.repoName,
+                branch: finalBranch,
+                lastSyncedCommitSHA: nil,
+                lastSyncedContentHash: nil,
+                syncDirection: writeAccess ? .origin : .upstream,
+                hasWriteAccess: writeAccess,
+                lastChecked: Date()
+            )
+            
+            try GitHubOrigin.saveOrigin(origin, to: skill.skillPath)
+            try await GitHubSyncService.setupGitForImportedSkill(at: skill.skillPath, origin: origin)
+            
+            await MainActor.run { isLinking = false; showLinkSheet = false }
+            
+            await refresh()
+            
+            if let updatedSkill = allRecords.flatMap({ $0.skills.values }).first(where: { $0.skillPath == skill.skillPath }) {
+                await checkGitHubDivergence(for: updatedSkill)
+            }
+            
+            return origin
+        } catch {
+            await MainActor.run { isLinking = false; linkError = error.localizedDescription }
+            throw error
+        }
     }
 
     // MARK: - Private GitHub Helpers

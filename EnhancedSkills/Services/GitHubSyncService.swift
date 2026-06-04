@@ -274,29 +274,48 @@ struct GitHubSyncService {
     /// Initialize a git repo in the skill directory and set up tracking for an imported skill.
     static func setupGitForImportedSkill(at skillPath: URL, origin: GitHubOrigin) async throws {
         let gitDir = skillPath.appendingPathComponent(".git")
-        if !FileManager.default.fileExists(atPath: gitDir.path) {
+        let fm = FileManager.default
+        let remoteURL = "https://github.com/\(origin.owner)/\(origin.repoName).git"
+        
+        if !fm.fileExists(atPath: gitDir.path) {
             try await runGit(["init"], at: skillPath)
             try await runGit(["checkout", "-b", origin.branch], at: skillPath)
 
             // Create .gitignore
             let gitignoreContent = ".versions/\n.github.json\n.DS_Store\n"
             let gitignorePath = skillPath.appendingPathComponent(".gitignore")
-            if !FileManager.default.fileExists(atPath: gitignorePath.path) {
+            if !fm.fileExists(atPath: gitignorePath.path) {
                 try gitignoreContent.write(to: gitignorePath, atomically: true, encoding: .utf8)
             }
 
             // Initial commit of existing files
             try await runGit(["add", "SKILL.md"], at: skillPath)
             try? await runGit(["add", ".gitignore"], at: skillPath)
+            if fm.fileExists(atPath: skillPath.appendingPathComponent("references").path) {
+                try? await runGit(["add", "references/"], at: skillPath)
+            }
+            if fm.fileExists(atPath: skillPath.appendingPathComponent("scripts").path) {
+                try? await runGit(["add", "scripts/"], at: skillPath)
+            }
             try await runGit(["commit", "-m", "Import via EnhancedSkills"], at: skillPath)
 
             // Add remote
-            let remoteURL = "https://github.com/\(origin.owner)/\(origin.repoName).git"
             try await runGit(["remote", "add", "origin", remoteURL], at: skillPath)
-
-            // Fetch remote so we can track it
-            _ = try? await runGit(["fetch", "origin", "--quiet"], at: skillPath)
+        } else {
+            // Ensure remote origin URL is set correctly
+            let remotes = try? await runGit(["remote"], at: skillPath)
+            if remotes?.contains("origin") == true {
+                try await runGit(["remote", "set-url", "origin", remoteURL], at: skillPath)
+            } else {
+                try await runGit(["remote", "add", "origin", remoteURL], at: skillPath)
+            }
         }
+
+        // Fetch remote so we can track it
+        _ = try? await runGit(["fetch", "origin", "--quiet"], at: skillPath)
+        
+        // Try setting the upstream for the local branch to track the remote branch
+        _ = try? await runGit(["branch", "--set-upstream-to=origin/\(origin.branch)", origin.branch], at: skillPath)
     }
 
     // MARK: - Helpers

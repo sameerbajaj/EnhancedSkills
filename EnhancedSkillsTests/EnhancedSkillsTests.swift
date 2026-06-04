@@ -85,34 +85,34 @@ struct SkillInventoryTests {
     @Test func syncsWhenBothProvidersHaveSkill() {
         let codex = [makeDiscovered(provider: .codex, folderName: "my-skill")]
         let claude = [makeDiscovered(provider: .claude, folderName: "my-skill")]
-        let merged = SkillInventory.merge(codexSkills: codex, claudeSkills: claude)
+        let merged = SkillInventory.merge(skillsByProvider: [.codex: codex, .claude: claude])
         #expect(merged.count == 1)
         #expect(merged[0].status == .synced)
     }
 
     @Test func codexOnlyWhenNoClaudeSkill() {
         let codex = [makeDiscovered(provider: .codex, folderName: "codex-only")]
-        let merged = SkillInventory.merge(codexSkills: codex, claudeSkills: [])
+        let merged = SkillInventory.merge(skillsByProvider: [.codex: codex])
         #expect(merged[0].status == .codexOnly)
     }
 
     @Test func claudeOnlyWhenNoCodexSkill() {
         let claude = [makeDiscovered(provider: .claude, folderName: "claude-only")]
-        let merged = SkillInventory.merge(codexSkills: [], claudeSkills: claude)
+        let merged = SkillInventory.merge(skillsByProvider: [.claude: claude])
         #expect(merged[0].status == .claudeOnly)
     }
 
     @Test func mergesToSingleRecordBySlug() {
         let codex = [makeDiscovered(provider: .codex, folderName: "Shared-Skill")]
         let claude = [makeDiscovered(provider: .claude, folderName: "shared-skill")]
-        let merged = SkillInventory.merge(codexSkills: codex, claudeSkills: claude)
+        let merged = SkillInventory.merge(skillsByProvider: [.codex: codex, .claude: claude])
         #expect(merged.count == 1)
     }
 
     @Test func separatesDistinctSlugs() {
         let codex = [makeDiscovered(provider: .codex, folderName: "skill-a")]
         let claude = [makeDiscovered(provider: .claude, folderName: "skill-b")]
-        let merged = SkillInventory.merge(codexSkills: codex, claudeSkills: claude)
+        let merged = SkillInventory.merge(skillsByProvider: [.codex: codex, .claude: claude])
         #expect(merged.count == 2)
     }
 }

@@ -272,6 +272,11 @@ struct DetailContent: View {
                 GitHubDivergenceSheet(skill: skill, origin: origin, state: state)
             }
         }
+        .sheet(isPresented: $state.showLinkSheet) {
+            if let skill = state.linkingSkill {
+                LinkGitHubRepositorySheet(skill: skill, state: state)
+            }
+        }
     }
 }
 
@@ -386,6 +391,29 @@ struct GitHubSyncSection: View {
                     }
                     .buttonStyle(.plain)
                     .help("Check sync status")
+
+                    // Edit/Relink button
+                    Button {
+                        state.startLinking(skill: skill)
+                    } label: {
+                        Image(systemName: "pencil")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.textTertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Edit GitHub link")
+
+                    // Unlink button
+                    Button {
+                        state.disconnectFromGitHub(skill: skill)
+                    } label: {
+                        Image(systemName: "link.slash")
+                            .font(.system(size: 11))
+                            .foregroundStyle(DS.Color.invalid)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Unlink repository")
+
                     let _ = origin  // suppress unused warning
                 }
             }
@@ -509,14 +537,36 @@ struct GitHubSyncSection: View {
 
             } else if let skill = record.preferredPreviewSource {
                 // Not linked state
-                if state.ghCLIAvailable && state.ghCLIAuthenticated {
+                VStack(alignment: .leading, spacing: DS.Spacing.sm) {
+                    if state.ghCLIAvailable && state.ghCLIAuthenticated {
+                        Button {
+                            state.startPublishing(skill: skill)
+                        } label: {
+                            HStack(spacing: DS.Spacing.sm) {
+                                Image(systemName: "arrow.up.to.line.circle.fill")
+                                    .font(.system(size: 14))
+                                Text("Publish to GitHub")
+                                    .font(.system(size: 13, weight: .semibold))
+                                Spacer()
+                                Image(systemName: "arrow.right")
+                                    .font(.system(size: 11))
+                            }
+                            .foregroundStyle(DS.Color.accent)
+                            .padding(DS.Spacing.md)
+                            .background(DS.Color.accentLight)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+                            .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.accent.opacity(0.3), lineWidth: 1))
+                        }
+                        .buttonStyle(.plain)
+                    }
+
                     Button {
-                        state.startPublishing(skill: skill)
+                        state.startLinking(skill: skill)
                     } label: {
                         HStack(spacing: DS.Spacing.sm) {
-                            Image(systemName: "arrow.up.to.line.circle.fill")
+                            Image(systemName: "link.circle.fill")
                                 .font(.system(size: 14))
-                            Text("Publish to GitHub")
+                            Text("Link Existing Repository")
                                 .font(.system(size: 13, weight: .semibold))
                             Spacer()
                             Image(systemName: "arrow.right")
@@ -529,24 +579,27 @@ struct GitHubSyncSection: View {
                         .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.accent.opacity(0.3), lineWidth: 1))
                     }
                     .buttonStyle(.plain)
-                    let _ = skill  // used above
-                } else if !state.ghCLIAvailable {
-                    HStack(spacing: DS.Spacing.xs) {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 11))
-                            .foregroundStyle(DS.Color.textTertiary)
-                        Text("Install the GitHub CLI (gh) to publish and sync skills.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(DS.Color.textTertiary)
-                    }
-                } else {
-                    HStack(spacing: DS.Spacing.xs) {
-                        Image(systemName: "person.crop.circle.badge.questionmark")
-                            .font(.system(size: 11))
-                            .foregroundStyle(DS.Color.textTertiary)
-                        Text("Run \u{2018}gh auth login\u{2019} to connect your GitHub account.")
-                            .font(.system(size: 11))
-                            .foregroundStyle(DS.Color.textTertiary)
+
+                    if !state.ghCLIAvailable {
+                        HStack(spacing: DS.Spacing.xs) {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.textTertiary)
+                            Text("Install the GitHub CLI (gh) to enable publishing new repositories.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.textTertiary)
+                        }
+                        .padding(.top, 4)
+                    } else if !state.ghCLIAuthenticated {
+                        HStack(spacing: DS.Spacing.xs) {
+                            Image(systemName: "person.crop.circle.badge.questionmark")
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.textTertiary)
+                            Text("Run \u{2018}gh auth login\u{2019} to enable publishing new repositories.")
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.textTertiary)
+                        }
+                        .padding(.top, 4)
                     }
                 }
             }
