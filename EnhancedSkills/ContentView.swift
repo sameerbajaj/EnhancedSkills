@@ -32,6 +32,7 @@ struct ContentView: View {
         }
         .frame(minWidth: 900, minHeight: 600)
         .background(DS.Color.canvas)
+        .preferredColorScheme(settings.appearance.colorScheme)
         .animation(.easeInOut(duration: 0.35), value: settings.hasCompletedOnboarding)
         .task {
             guard settings.hasCompletedOnboarding else { return }

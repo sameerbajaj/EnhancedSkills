@@ -86,6 +86,7 @@ struct SettingsView: View {
             .background(DS.Color.surface)
         }
         .frame(minWidth: 900, idealWidth: 960, minHeight: 660, idealHeight: 700)
+        .preferredColorScheme(settings.appearance.colorScheme)
     }
 }
 
