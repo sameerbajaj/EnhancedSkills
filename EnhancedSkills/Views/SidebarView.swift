@@ -28,6 +28,15 @@ struct SidebarView: View {
 
             // Provider cards
             VStack(spacing: DS.Spacing.sm) {
+                AllModelsSummaryCard(
+                    skillCount: state.allRecords.count,
+                    isActive: state.providerFilter == nil
+                ) {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        state.providerFilter = nil
+                    }
+                }
+
                 ForEach(visibleProviders) { provider in
                     ProviderSummaryCard(
                         provider: provider,
