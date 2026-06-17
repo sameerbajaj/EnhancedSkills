@@ -95,22 +95,46 @@ struct TransferService {
     private static func copyDir(from src: URL, to dst: URL) throws {
         let fm = FileManager.default
         try fm.createDirectory(at: dst, withIntermediateDirectories: true)
-        let items = try fm.contentsOfDirectory(at: src, includingPropertiesForKeys: nil)
+        
+        // Resolve src path if it is a symlink
+        let resolvedSrc = src.resolvingSymlinksInPath()
+        let items = try fm.contentsOfDirectory(at: resolvedSrc, includingPropertiesForKeys: nil)
+        
         for item in items {
             let name = item.lastPathComponent
-            if name == ".DS_Store" || name == ".versions" || name == ".git" || name == ".github.json" || name == ".gitignore" { continue }
-            let dest = dst.appendingPathComponent(item.lastPathComponent)
+            if name == ".DS_Store" || name == ".versions" || name == ".git" || name == ".github.json" || name == ".gitignore" || name == ".venv" || name == "node_modules" || name == "build" || name == "dist" || name == ".build" { continue }
+            
+            let dest = dst.appendingPathComponent(name)
+            let resolvedItem = item.resolvingSymlinksInPath()
+            
             var isDir: ObjCBool = false
-            fm.fileExists(atPath: item.path, isDirectory: &isDir)
+            fm.fileExists(atPath: resolvedItem.path, isDirectory: &isDir)
             if isDir.boolValue {
-                try copyDir(from: item, to: dest)
+                try copyDir(from: resolvedItem, to: dest)
             } else {
-                try fm.copyItem(at: item, to: dest)
+                try fm.copyItem(at: resolvedItem, to: dest)
             }
         }
     }
 
     private static func countItems(at url: URL) -> Int {
-        (FileManager.default.enumerator(at: url, includingPropertiesForKeys: nil)?.allObjects.count) ?? 0
+        let fm = FileManager.default
+        let resolvedURL = url.resolvingSymlinksInPath()
+        guard let enumerator = fm.enumerator(
+            at: resolvedURL,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { return 0 }
+        
+        var count = 0
+        for case let fileURL as URL in enumerator {
+            let name = fileURL.lastPathComponent
+            if name == ".DS_Store" || name == ".versions" || name == ".git" || name == ".github.json" || name == ".gitignore" || name == ".venv" || name == "node_modules" || name == "build" || name == "dist" || name == ".build" {
+                enumerator.skipDescendants()
+                continue
+            }
+            count += 1
+        }
+        return count
     }
 }
