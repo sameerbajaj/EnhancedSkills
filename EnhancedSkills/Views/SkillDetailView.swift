@@ -502,9 +502,24 @@ struct GitHubSyncSection: View {
                     }
 
                     if let err = state.githubSyncError {
-                        Text(err)
-                            .font(.system(size: 11))
-                            .foregroundStyle(DS.Color.invalid)
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            Text(err)
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.invalid)
+                            
+                            if err.contains("Merge conflict") {
+                                GitHubActionButton(
+                                    label: "Accept Remote Changes",
+                                    icon: "arrow.down.doc.fill",
+                                    color: DS.Color.remoteAhead
+                                ) {
+                                    Task {
+                                        await state.forceRemoteToLocal(skill: skill)
+                                    }
+                                }
+                                .padding(.top, 2)
+                            }
+                        }
                     }
                 }
                 .padding(DS.Spacing.md)
