@@ -269,7 +269,7 @@ final class UsageTracker {
             changed = true
         }
 
-        let geminiSlugs = trackedSlugs(for: Provider.gemini.rawValue)
+        let geminiSlugs = trackedSlugs(for: "gemini")
         if !geminiSlugs.isEmpty, pollGeminiLogs(slugs: geminiSlugs, now: now) {
             changed = true
         }
@@ -392,7 +392,7 @@ final class UsageTracker {
                       let content = message["content"] as? String else { continue }
 
                 let hits = detectInvokedSlugs(in: content, candidates: slugs)
-                for slug in hits where incrementUsage(slug: slug, provider: Provider.gemini.rawValue, now: now) {
+                for slug in hits where incrementUsage(slug: slug, provider: "gemini", now: now) {
                     changed = true
                 }
             }

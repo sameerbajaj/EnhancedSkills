@@ -584,7 +584,7 @@ struct ProvidersSettingsContent: View {
             .padding(.top, DS.Spacing.lg)
             .padding(.bottom, DS.Spacing.md)
 
-            Text("Gemini and Antigravity are disabled by default. Enable them and set a path to start syncing.")
+            Text("Antigravity is disabled by default. Enable it and set a path to start syncing.")
                 .font(.system(size: 11))
                 .foregroundStyle(DS.Color.textTertiary)
                 .padding(.horizontal, DS.Spacing.lg)

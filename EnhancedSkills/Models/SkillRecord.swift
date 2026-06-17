@@ -1,7 +1,7 @@
 import Foundation
 
 enum SkillStatus: String, Equatable {
-    case synced, needsSync, codexOnly, claudeOnly, openclawOnly, geminiOnly, antigravityOnly, conflict, invalid
+    case synced, needsSync, codexOnly, claudeOnly, openclawOnly, antigravityOnly, conflict, invalid
 
     var displayName: String {
         switch self {
@@ -10,7 +10,6 @@ enum SkillStatus: String, Equatable {
         case .codexOnly: return "Codex Only"
         case .claudeOnly: return "Claude Only"
         case .openclawOnly: return "OpenClaw Only"
-        case .geminiOnly: return "Gemini Only"
         case .antigravityOnly: return "Antigravity Only"
         case .conflict: return "Conflict"
         case .invalid: return "Invalid"
@@ -22,7 +21,6 @@ enum SkillStatus: String, Equatable {
         case .codex: return .codexOnly
         case .claude: return .claudeOnly
         case .openclaw: return .openclawOnly
-        case .gemini: return .geminiOnly
         case .antigravity: return .antigravityOnly
         }
     }
@@ -43,7 +41,6 @@ struct SkillRecord: Identifiable, Equatable {
     var codexSkill: DiscoveredSkill? { skills[.codex] }
     var claudeSkill: DiscoveredSkill? { skills[.claude] }
     var openclawSkill: DiscoveredSkill? { skills[.openclaw] }
-    var geminiSkill: DiscoveredSkill? { skills[.gemini] }
     var antigravitySkill: DiscoveredSkill? { skills[.antigravity] }
 
     func skill(for provider: Provider) -> DiscoveredSkill? { skills[provider] }

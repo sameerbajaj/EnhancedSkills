@@ -5,7 +5,6 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
     case codex
     case claude
     case openclaw
-    case gemini
     case antigravity
 
     var id: String { rawValue }
@@ -15,7 +14,6 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
         case .codex: return "Codex"
         case .claude: return "Claude"
         case .openclaw: return "OpenClaw"
-        case .gemini: return "Gemini"
         case .antigravity: return "Antigravity"
         }
     }
@@ -25,7 +23,6 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
         switch self {
         case .codex: return home.appendingPathComponent(".codex/skills")
         case .claude: return home.appendingPathComponent(".claude/skills")
-        case .gemini: return home.appendingPathComponent(".gemini/skills")
         case .antigravity: return home.appendingPathComponent(".gemini/antigravity/skills")
         case .openclaw: return nil
         }
@@ -36,7 +33,6 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
         case .codex: return DS.Color.codexOnly
         case .claude: return DS.Color.claudeOnly
         case .openclaw: return DS.Color.openclawOnly
-        case .gemini: return DS.Color.geminiOnly
         case .antigravity: return DS.Color.antigravityOnly
         }
     }
@@ -46,7 +42,6 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
         case .codex: return DS.Color.codexOnlyBg
         case .claude: return DS.Color.claudeOnlyBg
         case .openclaw: return DS.Color.openclawOnlyBg
-        case .gemini: return DS.Color.geminiOnlyBg
         case .antigravity: return DS.Color.antigravityOnlyBg
         }
     }
@@ -79,15 +74,6 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
                 requiredFrontmatterFields: ["name", "description"],
                 optionalFrontmatterFields: ["version", "requires.env", "requires.bins"],
                 specSummary: "OpenClaw skills follow the ClawHub skill format with support for environment and binary requirements."
-            )
-        case .gemini:
-            return ProviderSpec(
-                specURL: URL(string: "https://geminicli.com/docs/cli/skills/"),
-                bestPracticesURL: nil,
-                skillFileName: "SKILL.md",
-                requiredFrontmatterFields: ["name", "description"],
-                optionalFrontmatterFields: [],
-                specSummary: "Gemini CLI skills use Markdown files with YAML frontmatter for defining reusable prompts."
             )
         case .antigravity:
             return ProviderSpec(

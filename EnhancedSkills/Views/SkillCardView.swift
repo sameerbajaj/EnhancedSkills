@@ -128,7 +128,6 @@ struct StatusPill: View {
         case .codexOnly: return .codex
         case .claudeOnly: return .claude
         case .openclawOnly: return .openclaw
-        case .geminiOnly: return .gemini
         case .antigravityOnly: return .antigravity
         default: return nil
         }
