@@ -23,7 +23,7 @@ enum Provider: String, CaseIterable, Identifiable, Equatable, Hashable {
         switch self {
         case .codex: return home.appendingPathComponent(".codex/skills")
         case .claude: return home.appendingPathComponent(".claude/skills")
-        case .antigravity: return home.appendingPathComponent(".gemini/antigravity/skills")
+        case .antigravity: return home.appendingPathComponent(".gemini/skills")
         case .openclaw: return nil
         }
     }

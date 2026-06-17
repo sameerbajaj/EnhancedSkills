@@ -118,7 +118,18 @@ class SettingsStore {
         }
 
         for provider in Provider.allCases {
-            let savedPath = defaults.string(forKey: "settings.\(provider.rawValue)Path")
+            var savedPath = defaults.string(forKey: "settings.\(provider.rawValue)Path")
+            
+            if provider == .antigravity, let pathVal = savedPath {
+                let home = FileManager.default.homeDirectoryForCurrentUser
+                let oldDefaultTilde = "~/.gemini/antigravity/skills"
+                let oldDefaultAbsolute = home.appendingPathComponent(".gemini/antigravity/skills").path
+                if pathVal == oldDefaultTilde || pathVal == oldDefaultAbsolute {
+                    savedPath = provider.defaultRootPath?.path ?? ""
+                    defaults.set(savedPath, forKey: "settings.antigravityPath")
+                }
+            }
+
             paths[provider] = Self.nonEmpty(savedPath) ?? provider.defaultRootPath?.path ?? ""
 
             let enabledKey = "settings.\(provider.rawValue)Enabled"

@@ -56,7 +56,7 @@ EnhancedSkills checks for updates on launch and via **EnhancedSkills → Check f
 | Claude | `~/.claude/skills` |
 | OpenClaw | *(configure manually)* |
 | Gemini | `~/.gemini/skills` *(disabled by default)* |
-| Antigravity | `~/.gemini/antigravity/skills` *(disabled by default)* |
+| Antigravity | `~/.gemini/skills` *(disabled by default)* |
 
 Gemini and Antigravity can be enabled in **Settings** (`⌘,`).
 

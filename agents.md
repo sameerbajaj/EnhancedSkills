@@ -18,7 +18,7 @@ The app scans, parses, and synchronizes skills across multiple local developer e
 2. **Claude**: Default path `~/.claude/skills`
 3. **OpenClaw**: Configured manually (e.g. `~/.clawhub` or customized)
 4. **Gemini**: Default path `~/.gemini/skills` (disabled by default, toggleable in Settings)
-5. **Antigravity**: Default path `~/.gemini/antigravity/skills` (disabled by default, toggleable in Settings)
+5. **Antigravity**: Default path `~/.gemini/skills` (disabled by default, toggleable in Settings)
 
 ---
 
