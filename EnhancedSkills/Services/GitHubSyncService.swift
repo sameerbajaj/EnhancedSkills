@@ -121,7 +121,7 @@ struct GitHubSyncService {
         let skillPath = skill.skillPath
 
         // Ensure git repo exists
-        guard FileManager.default.fileExists(atPath: skillPath.appendingPathComponent(".git").path) else {
+        guard findGitRoot(from: skillPath) != nil else {
             throw GitHubSyncError.notAGitRepo
         }
 
@@ -162,7 +162,7 @@ struct GitHubSyncService {
     static func pullFromGitHub(skill: DiscoveredSkill, origin: GitHubOrigin) async throws -> GitHubOrigin {
         let skillPath = skill.skillPath
 
-        guard FileManager.default.fileExists(atPath: skillPath.appendingPathComponent(".git").path) else {
+        guard findGitRoot(from: skillPath) != nil else {
             throw GitHubSyncError.notAGitRepo
         }
 
@@ -240,7 +240,7 @@ struct GitHubSyncService {
     static func checkDivergence(skill: DiscoveredSkill, origin: GitHubOrigin) async -> GitHubSyncStatus {
         let skillPath = skill.skillPath
 
-        guard FileManager.default.fileExists(atPath: skillPath.appendingPathComponent(".git").path) else {
+        guard findGitRoot(from: skillPath) != nil else {
             return .error("Not a git repository. Push first to set up tracking.")
         }
 
@@ -361,5 +361,20 @@ struct GitHubSyncService {
             hash = hash &* 0x100000001b3
         }
         return String(format: "%016llx", hash)
+    }
+
+    private static func findGitRoot(from url: URL) -> URL? {
+        var current = url
+        let fm = FileManager.default
+        while current.path != "/" && current.path != "." {
+            let gitDir = current.appendingPathComponent(".git")
+            if fm.fileExists(atPath: gitDir.path) {
+                return current
+            }
+            let parent = current.deletingLastPathComponent()
+            if parent.path == current.path { break }
+            current = parent
+        }
+        return nil
     }
 }

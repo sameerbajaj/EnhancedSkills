@@ -24,17 +24,26 @@ struct CodexProvider: SkillProvider {
             guard isDir.boolValue else { return nil }
 
             let folderName = url.lastPathComponent
-            let mdPath = url.appendingPathComponent("SKILL.md")
-            guard fm.fileExists(atPath: mdPath.path) else { return nil }
+            var mdPath = url.appendingPathComponent("SKILL.md")
+            var skillPath = url
+            
+            if !fm.fileExists(atPath: mdPath.path) {
+                if let found = findSKILLmd(in: url, maxDepth: 3) {
+                    mdPath = found
+                    skillPath = found.deletingLastPathComponent()
+                } else {
+                    return nil
+                }
+            }
 
             let isSystem = folderName == ".system"
-            let hasScripts = fm.fileExists(atPath: url.appendingPathComponent("scripts").path)
-            let hasRefs = fm.fileExists(atPath: url.appendingPathComponent("references").path)
+            let hasScripts = fm.fileExists(atPath: skillPath.appendingPathComponent("scripts").path)
+            let hasRefs = fm.fileExists(atPath: skillPath.appendingPathComponent("references").path)
             let lastMod = (try? fm.attributesOfItem(atPath: mdPath.path))?[.modificationDate] as? Date
 
             var skill = DiscoveredSkill(
                 provider: .codex, folderName: folderName,
-                rootPath: rootPath, skillPath: url, skillMarkdownPath: mdPath,
+                rootPath: rootPath, skillPath: skillPath, skillMarkdownPath: mdPath,
                 parsedName: nil, parsedDescription: nil,
                 isSystem: isSystem, hasScripts: hasScripts, hasReferences: hasRefs,
                 lastModified: lastMod, parseStatus: .ok, previewExcerpt: nil
