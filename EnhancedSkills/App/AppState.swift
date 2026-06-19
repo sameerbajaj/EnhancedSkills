@@ -12,7 +12,9 @@ enum FilterOption: String, CaseIterable, Equatable {
 }
 
 enum SkillSortOrder: String, CaseIterable, Equatable {
-    case lastModified = "Last Modified"
+    case lastModified = "Recently Modified"
+    case createdNewest = "Newest Created"
+    case createdOldest = "Oldest Created"
     case mostUsed = "Most Used"
     case title = "Title"
     case recentlyAccessed = "Recently Accessed"
@@ -22,6 +24,8 @@ enum SkillSortOrder: String, CaseIterable, Equatable {
     var icon: String {
         switch self {
         case .lastModified:     return "clock"
+        case .createdNewest:    return "calendar.badge.plus"
+        case .createdOldest:    return "calendar"
         case .mostUsed:         return "flame"
         case .title:            return "textformat"
         case .recentlyAccessed: return "clock.arrow.circlepath"
@@ -172,6 +176,10 @@ class AppState {
         switch sortOrder {
         case .lastModified:
             records.sort { ($0.lastModified ?? .distantPast) > ($1.lastModified ?? .distantPast) }
+        case .createdNewest:
+            records.sort { ($0.createdDate ?? .distantPast) > ($1.createdDate ?? .distantPast) }
+        case .createdOldest:
+            records.sort { ($0.createdDate ?? .distantFuture) < ($1.createdDate ?? .distantFuture) }
         case .mostUsed:
             records.sort {
                 (usageDatabase?.records[$0.slug]?.totalUsageCount ?? 0) >

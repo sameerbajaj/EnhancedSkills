@@ -6,6 +6,8 @@ struct SkillCardView: View {
     var index: Int = 0
     var usageCount: Int = 0
     var evaluationScore: Int? = nil
+    var sortOrder: SkillSortOrder = .lastModified
+    var lastUsedDate: Date? = nil
 
     @State private var appeared = false
     @State private var isHovered = false
@@ -67,11 +69,7 @@ struct SkillCardView: View {
                     EvaluationScoreBadge(score: score)
                 }
                 Spacer()
-                if let date = record.lastModified {
-                    Text(date, style: .relative)
-                        .font(.system(size: 10))
-                        .foregroundStyle(DS.Color.textTertiary)
-                }
+                contextualDateView
             }
         }
         .padding(DS.Spacing.lg)
@@ -91,6 +89,28 @@ struct SkillCardView: View {
         .animation(.easeInOut(duration: 0.15), value: isHovered)
         .onAppear { appeared = true }
         .onHover { isHovered = $0 }
+    }
+
+    // MARK: - Context-Aware Date Display
+
+    @ViewBuilder
+    private var contextualDateView: some View {
+        switch sortOrder {
+        case .createdNewest, .createdOldest:
+            if let date = record.createdDate {
+                DateLabel(label: "Created", date: date, style: .abbreviated)
+            }
+        case .recentlyAccessed:
+            if let date = lastUsedDate {
+                DateLabel(label: "Used", date: date, style: .relative)
+            } else if let date = record.lastModified {
+                DateLabel(label: "Modified", date: date, style: .relative)
+            }
+        default:
+            if let date = record.lastModified {
+                DateLabel(label: "Modified", date: date, style: .relative)
+            }
+        }
     }
 }
 
@@ -221,5 +241,43 @@ struct EvaluationScoreBadge: View {
         .padding(.vertical, 2)
         .background(bgColor)
         .clipShape(Capsule())
+    }
+}
+
+// MARK: - Date Label Helper
+
+enum DateLabelStyle {
+    case relative
+    case abbreviated
+}
+
+struct DateLabel: View {
+    let label: String
+    let date: Date
+    let style: DateLabelStyle
+
+    private static let abbreviatedFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .none
+        return f
+    }()
+
+    var body: some View {
+        HStack(spacing: 3) {
+            Text(label)
+                .font(.system(size: 9, weight: .medium))
+                .foregroundStyle(DS.Color.textTertiary)
+            switch style {
+            case .relative:
+                Text(date, style: .relative)
+                    .font(.system(size: 10))
+                    .foregroundStyle(DS.Color.textTertiary)
+            case .abbreviated:
+                Text(Self.abbreviatedFormatter.string(from: date))
+                    .font(.system(size: 10))
+                    .foregroundStyle(DS.Color.textTertiary)
+            }
+        }
     }
 }

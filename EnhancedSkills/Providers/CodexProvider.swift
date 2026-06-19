@@ -39,14 +39,16 @@ struct CodexProvider: SkillProvider {
             let isSystem = folderName == ".system"
             let hasScripts = fm.fileExists(atPath: skillPath.appendingPathComponent("scripts").path)
             let hasRefs = fm.fileExists(atPath: skillPath.appendingPathComponent("references").path)
-            let lastMod = (try? fm.attributesOfItem(atPath: mdPath.path))?[.modificationDate] as? Date
+            let attrs = try? fm.attributesOfItem(atPath: mdPath.path)
+            let lastMod = attrs?[.modificationDate] as? Date
+            let createdDate = (try? fm.attributesOfItem(atPath: url.path))?[.creationDate] as? Date
 
             var skill = DiscoveredSkill(
                 provider: .codex, folderName: folderName,
                 rootPath: rootPath, skillPath: skillPath, skillMarkdownPath: mdPath,
                 parsedName: nil, parsedDescription: nil,
                 isSystem: isSystem, hasScripts: hasScripts, hasReferences: hasRefs,
-                lastModified: lastMod, parseStatus: .ok, previewExcerpt: nil
+                createdDate: createdDate, lastModified: lastMod, parseStatus: .ok, previewExcerpt: nil
             )
             let (fm, body) = SkillParser.parse(skill: &skill)
             skill.contentHash = ContentHasher.sha256(ofString: body)

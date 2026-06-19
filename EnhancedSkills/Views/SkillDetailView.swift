@@ -211,6 +211,12 @@ struct DetailContent: View {
                     Divider()
                 }
 
+                // Dates section
+                if record.createdDate != nil || record.lastModified != nil {
+                    SkillDatesSection(record: record)
+                    Divider()
+                }
+
                 UsageStatsSection(record: record, state: state)
                 GitHubSyncSection(record: record, state: state)
 
@@ -799,6 +805,77 @@ struct MetaChip: View {
             .padding(.vertical, DS.Spacing.xs)
             .background(DS.Color.borderLight)
             .clipShape(Capsule())
+    }
+}
+
+// MARK: - Dates Section
+
+struct SkillDatesSection: View {
+    let record: SkillRecord
+
+    private static let fullDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateStyle = .medium
+        f.timeStyle = .short
+        return f
+    }()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: DS.Spacing.md) {
+            Text("DATES")
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(DS.Color.textTertiary)
+
+            HStack(spacing: DS.Spacing.xl) {
+                if let created = record.createdDate {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: DS.Spacing.xs) {
+                            Image(systemName: "calendar.badge.plus")
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.accent)
+                            Text("Created")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(DS.Color.textTertiary)
+                        }
+                        Text(Self.fullDateFormatter.string(from: created))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(DS.Color.text)
+                        Text(created, style: .relative)
+                            .font(.system(size: 10))
+                            .foregroundStyle(DS.Color.textTertiary)
+                            + Text(" ago")
+                            .font(.system(size: 10))
+                            .foregroundStyle(DS.Color.textTertiary)
+                    }
+                }
+
+                if let modified = record.lastModified {
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: DS.Spacing.xs) {
+                            Image(systemName: "clock")
+                                .font(.system(size: 11))
+                                .foregroundStyle(DS.Color.textSecondary)
+                            Text("Last Modified")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(DS.Color.textTertiary)
+                        }
+                        Text(Self.fullDateFormatter.string(from: modified))
+                            .font(.system(size: 13, weight: .semibold))
+                            .foregroundStyle(DS.Color.text)
+                        Text(modified, style: .relative)
+                            .font(.system(size: 10))
+                            .foregroundStyle(DS.Color.textTertiary)
+                            + Text(" ago")
+                            .font(.system(size: 10))
+                            .foregroundStyle(DS.Color.textTertiary)
+                    }
+                }
+            }
+            .padding(DS.Spacing.md)
+            .background(DS.Color.surface)
+            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.md))
+            .overlay(RoundedRectangle(cornerRadius: DS.Radius.md).stroke(DS.Color.borderLight, lineWidth: 1))
+        }
     }
 }
 

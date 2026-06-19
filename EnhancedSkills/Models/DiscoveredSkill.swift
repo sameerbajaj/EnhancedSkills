@@ -19,6 +19,7 @@ struct DiscoveredSkill: Identifiable, Equatable {
     var isSystem: Bool
     var hasScripts: Bool
     var hasReferences: Bool
+    var createdDate: Date?
     var lastModified: Date?
     var contentHash: String?
     var parseStatus: ParseStatus

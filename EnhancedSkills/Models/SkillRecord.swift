@@ -36,6 +36,7 @@ struct SkillRecord: Identifiable, Equatable {
     var syncEnabled: Bool = false
     var tags: [String]
     var lastModified: Date?
+    var createdDate: Date?
 
     // Convenience accessors for backward compat
     var codexSkill: DiscoveredSkill? { skills[.codex] }

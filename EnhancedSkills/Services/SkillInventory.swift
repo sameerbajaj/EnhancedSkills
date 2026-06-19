@@ -10,7 +10,7 @@ struct SkillInventory {
                 var r = records[slug] ?? SkillRecord(
                     id: slug, displayName: skill.parsedName ?? slug,
                     description: skill.parsedDescription, slug: slug,
-                    skills: [:], status: .invalid, tags: [], lastModified: nil
+                    skills: [:], status: .invalid, tags: [], lastModified: nil, createdDate: nil
                 )
                 r.skills[skill.provider] = skill
                 // First provider to set display name wins
@@ -19,6 +19,7 @@ struct SkillInventory {
                     r.description = skill.parsedDescription ?? r.description
                 }
                 r.lastModified = latestDate(r.lastModified, skill.lastModified)
+                r.createdDate = earliestDate(r.createdDate, skill.createdDate)
                 records[slug] = r
             }
         }
@@ -56,6 +57,15 @@ struct SkillInventory {
         case (nil, let d): return d
         case (let d, nil): return d
         case (let d1?, let d2?): return max(d1, d2)
+        default: return nil
+        }
+    }
+
+    private static func earliestDate(_ a: Date?, _ b: Date?) -> Date? {
+        switch (a, b) {
+        case (nil, let d): return d
+        case (let d, nil): return d
+        case (let d1?, let d2?): return min(d1, d2)
         default: return nil
         }
     }
