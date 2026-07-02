@@ -8,6 +8,9 @@ struct SkillCardView: View {
     var evaluationScore: Int? = nil
     var sortOrder: SkillSortOrder = .lastModified
     var lastUsedDate: Date? = nil
+    var category: SkillCategory? = nil
+    var isClassifying: Bool = false
+
 
     @State private var appeared = false
     @State private var isHovered = false
@@ -38,6 +41,8 @@ struct SkillCardView: View {
                         ProviderBadge(provider: provider)
                     }
                 }
+                CategoryPill(category: category, isClassifying: isClassifying)
+
                 if record.totalViolationCount > 0 {
                     HStack(spacing: 3) {
                         Image(systemName: "exclamationmark.triangle.fill")

@@ -62,6 +62,7 @@ struct ContentView: View {
     private func performStartup() async {
         appState.evaluationScoreStore.load()
         appState.evaluationCache = appState.evaluationScoreStore.allFreshEvaluations()
+        appState.categoryStore.load()
         await appState.refresh()
         await appState.checkGHCLI()
         await configureUsageTracking()

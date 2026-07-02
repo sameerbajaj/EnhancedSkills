@@ -79,7 +79,17 @@ struct SkillListView: View {
                 ScrollView {
                     LazyVStack(spacing: DS.Spacing.sm) {
                         ForEach(Array(state.filteredRecords.enumerated()), id: \.element.id) { idx, record in
-                            SkillCardView(record: record, isSelected: state.selectedRecord?.id == record.id, index: idx, usageCount: state.usageStats(for: record.slug)?.totalUsageCount ?? 0, evaluationScore: state.evaluationScore(for: record.slug, currentHash: record.preferredPreviewSource?.contentHash), sortOrder: state.sortOrder, lastUsedDate: state.usageStats(for: record.slug)?.lastUsedAcrossProviders)
+                            SkillCardView(
+                                record: record,
+                                isSelected: state.selectedRecord?.id == record.id,
+                                index: idx,
+                                usageCount: state.usageStats(for: record.slug)?.totalUsageCount ?? 0,
+                                evaluationScore: state.evaluationScore(for: record.slug, currentHash: record.preferredPreviewSource?.contentHash),
+                                sortOrder: state.sortOrder,
+                                lastUsedDate: state.usageStats(for: record.slug)?.lastUsedAcrossProviders,
+                                category: state.category(for: record.slug, currentHash: record.preferredPreviewSource?.contentHash),
+                                isClassifying: state.classifyingSkillSlugs.contains(record.slug)
+                            )
                                 .onTapGesture {
                                     withAnimation(.easeInOut(duration: 0.15)) {
                                         state.selectedRecord = record

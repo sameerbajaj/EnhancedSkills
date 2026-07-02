@@ -175,3 +175,30 @@ struct TransferServiceTests {
         #expect(FileManager.default.fileExists(atPath: destDir.appendingPathComponent("SKILL.md").path))
     }
 }
+
+// MARK: - CategoryStore Tests
+
+@Suite("CategoryStore")
+struct CategoryStoreTests {
+    @Test func persistsAndRestoresCategory() throws {
+        let store = CategoryStore()
+        store.load()
+        
+        let testSlug = "test-category-slug"
+        let testHash = "hash-12345"
+        let category = SkillCategory.aiAndLLM
+        
+        store.saveCategory(category, slug: testSlug, contentHash: testHash)
+        
+        // Load in a fresh store to verify persistence
+        let store2 = CategoryStore()
+        store2.load()
+        
+        let restored = store2.freshCategory(for: testSlug, currentHash: testHash)
+        #expect(restored == category)
+        
+        // Invalid hash should return nil
+        let restoredInvalidHash = store2.freshCategory(for: testSlug, currentHash: "wrong-hash")
+        #expect(restoredInvalidHash == nil)
+    }
+}

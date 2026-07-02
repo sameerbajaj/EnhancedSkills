@@ -90,6 +90,12 @@ class AppState {
     // MARK: - Evaluation Score Persistence
     var evaluationScoreStore = EvaluationScoreStore()
 
+    // MARK: - Category Persistence & In-Progress State
+    var categoryStore = CategoryStore()
+    var classifyingSkillSlugs: Set<String> = []
+    var categoryFilter: SkillCategory? = nil { didSet { recomputeFilteredRecords() } }
+
+
     // MARK: - Usage Tracking
     var usageTracker: UsageTracker?
     var usageDatabase: SkillUsageDatabase?
@@ -134,6 +140,12 @@ class AppState {
         return evaluationScoreStore.freshScore(for: slug, currentHash: hash)
     }
 
+    func category(for slug: String, currentHash: String?) -> SkillCategory? {
+        guard let hash = currentHash else { return nil }
+        return categoryStore.freshCategory(for: slug, currentHash: hash)
+    }
+
+
     var filteredRecords: [SkillRecord] { cachedFilteredRecords }
 
     private func recomputeCaches() {
@@ -150,6 +162,14 @@ class AppState {
         if let pf = providerFilter {
             records = records.filter { $0.skills[pf] != nil }
         }
+
+        if let cat = categoryFilter {
+            records = records.filter { record in
+                guard let hash = record.preferredPreviewSource?.contentHash else { return false }
+                return category(for: record.slug, currentHash: hash) == cat
+            }
+        }
+
 
         switch activeFilter {
         case .all: break
@@ -274,6 +294,10 @@ class AppState {
 
             // Check GitHub divergence for linked skills in background
             Task { await checkAllGitHubDivergence() }
+
+            // Automatically classify uncategorized skills in background
+            Task { await classifyAllUncategorized() }
+
         } catch {
             await MainActor.run { errorMessage = error.localizedDescription; isLoading = false }
         }
@@ -441,6 +465,53 @@ class AppState {
             }
         }
     }
+
+    func classifyAllUncategorized() async {
+        let uncategorized = allRecords.filter { record in
+            guard let hash = record.preferredPreviewSource?.contentHash else { return false }
+            return category(for: record.slug, currentHash: hash) == nil
+        }
+        
+        guard !uncategorized.isEmpty else { return }
+        
+        let backend = settings.aiBackend
+        let apiKey = settings.apiKey(for: backend)
+        
+        if backend.isAPI && apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return
+        }
+        
+        for record in uncategorized {
+            guard let skill = record.preferredPreviewSource,
+                  let hash = skill.contentHash else { continue }
+            
+            let slug = record.slug
+            
+            await MainActor.run {
+                _ = classifyingSkillSlugs.insert(slug)
+            }
+            
+            do {
+                let category = try await SkillClassifier.classify(
+                    skill: skill,
+                    backend: backend,
+                    apiKey: apiKey
+                )
+                
+                await MainActor.run {
+                    categoryStore.saveCategory(category, slug: slug, contentHash: hash)
+                    _ = classifyingSkillSlugs.remove(slug)
+                    recomputeFilteredRecords()
+                }
+            } catch {
+                await MainActor.run {
+                    _ = classifyingSkillSlugs.remove(slug)
+                }
+                print("Failed to classify skill \(slug): \(error)")
+            }
+        }
+    }
+
 
     /// Hard reset — used when the user explicitly wants to clear everything.
     func resetEvaluationState() {
