@@ -59,6 +59,10 @@ enum AIBackendRunner {
             ]
         case .googleCLI:
             candidates = [
+                "\(home)/.local/bin/agy",
+                "/opt/homebrew/bin/agy",
+                "/usr/local/bin/agy",
+                "/usr/bin/agy",
                 "\(home)/.local/bin/gemini",
                 "/opt/homebrew/bin/gemini",
                 "/usr/local/bin/gemini",

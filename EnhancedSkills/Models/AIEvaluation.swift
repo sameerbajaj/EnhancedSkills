@@ -85,7 +85,7 @@ enum AIBackend: String, CaseIterable {
         case .anthropicAPI: return "Anthropic API"
         case .codexCLI: return "Codex CLI"
         case .openAIAPI: return "OpenAI API"
-        case .googleCLI: return "Gemini CLI"
+        case .googleCLI: return "Antigravity CLI"
         case .googleAPI: return "Google AI API"
         }
     }
@@ -111,7 +111,7 @@ enum AIBackend: String, CaseIterable {
         switch self {
         case .claudeCLI: return "claude"
         case .codexCLI: return "codex"
-        case .googleCLI: return "gemini"
+        case .googleCLI: return "agy"
         case .anthropicAPI, .openAIAPI, .googleAPI: return ""
         }
     }
