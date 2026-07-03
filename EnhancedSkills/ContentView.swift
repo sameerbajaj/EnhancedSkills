@@ -57,6 +57,17 @@ struct ContentView: View {
             }
             .frame(minWidth: 520, minHeight: 400)
         }
+        .sheet(isPresented: $appState.showTaxonomySheet) {
+            TaxonomyApprovalSheet(
+                proposed: appState.proposedCategories,
+                onApprove: { approved in
+                    appState.approveTaxonomy(approved)
+                },
+                onCancel: {
+                    appState.showTaxonomySheet = false
+                }
+            )
+        }
     }
 
     private func performStartup() async {

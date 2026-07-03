@@ -186,7 +186,7 @@ struct CategoryStoreTests {
         
         let testSlug = "test-category-slug"
         let testHash = "hash-12345"
-        let category = SkillCategory.aiAndLLM
+        let category = SkillCategory(name: "AI & LLM")
         
         store.saveCategory(category, slug: testSlug, contentHash: testHash)
         

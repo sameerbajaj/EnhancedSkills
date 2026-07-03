@@ -8,6 +8,11 @@ struct SkillListView: View {
             // Hero header
             HeroHeaderView(state: state)
 
+            // Category filter bar
+            CategoryPillBar(state: state)
+                .padding(.horizontal, DS.Spacing.xl)
+                .padding(.bottom, DS.Spacing.md)
+
             // Search
             HStack(spacing: DS.Spacing.sm) {
                 Image(systemName: "magnifyingglass")

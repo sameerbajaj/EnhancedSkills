@@ -32,10 +32,26 @@ class CategoryStore {
         }
     }
 
-    /// Returns the category only if the stored content hash matches the current hash.
+    var approvedTaxonomy: [SkillCategory] {
+        database.approvedTaxonomy.map { SkillCategory(name: $0) }
+    }
+
+    var hasTaxonomy: Bool {
+        !database.approvedTaxonomy.isEmpty
+    }
+
+    func saveTaxonomy(_ categories: [String]) {
+        database.approvedTaxonomy = categories
+        save()
+    }
+
+    /// Returns the category only if the stored content hash matches the current hash and it is part of the approved taxonomy.
     func freshCategory(for slug: String, currentHash: String) -> SkillCategory? {
         guard let record = database.records[slug],
               record.contentHash == currentHash else {
+            return nil
+        }
+        if hasTaxonomy && !database.approvedTaxonomy.contains(record.category.name) {
             return nil
         }
         return record.category

@@ -10,4 +10,5 @@ public struct CategoryRecord: Codable {
 public struct CategoryDatabase: Codable {
     public var version: Int = 1
     public var records: [String: CategoryRecord] = [:]  // keyed by slug
+    public var approvedTaxonomy: [String] = []          // dynamic category names
 }

@@ -1,40 +1,115 @@
 import Foundation
 
+public struct ProposedCategory: Codable, Identifiable, Equatable {
+    public var id: String { name }
+    public var name: String
+    public let count: Int
+    public let reason: String
+
+    public init(name: String, count: Int, reason: String) {
+        self.name = name
+        self.count = count
+        self.reason = reason
+    }
+}
+
 struct ClassificationResponse: Codable {
     let category: String
 }
 
 enum SkillClassifier {
-    private static let systemPrompt = """
-    You are an expert developer skill categorizer. Analyze the provided skill information and classify it into exactly one of the following categories:
+    private static let discoverySystemPrompt = """
+    You are an expert developer skill taxonomist. Your task is to analyze a list of developer skills (names and descriptions) and propose 5-7 meaningful, organic categories that cluster them nicely.
 
-    - "Git & VCS"
-    - "Code Quality"
-    - "Documentation"
-    - "AI & LLM"
-    - "DevOps"
-    - "Testing"
-    - "Workflow"
-    - "Writing"
-    - "Data & API"
-    - "Security"
-    - "Other"
+    Propose categories that are high-level and clear (e.g. "Research & Analysis", "Content Creation", "Obsidian & PKM", "Task Management", "Git & DevOps", "Web Automation").
 
-    Respond with ONLY valid JSON containing a single key "category" whose value is exactly one of the category names listed above (e.g. {"category": "Git & VCS"}). Do not include any other text, markdown, or explanation.
+    Return ONLY a valid JSON object containing an array "categories". Each category must have:
+    - "name": String (2-3 words, capitalized)
+    - "reason": String (1-sentence reason why these skills belong together)
+    - "count": Integer (approximate number of skills in this category)
+
+    JSON Format Example:
+    {
+      "categories": [
+        {
+          "name": "Research & Analysis",
+          "reason": "Skills focused on gathering, summarizing, and processing data.",
+          "count": 12
+        }
+      ]
+    }
     """
 
+    private static func classificationSystemPrompt(taxonomy: [String]) -> String {
+        let taxonomyList = taxonomy.map { "\"\($0)\"" }.joined(separator: ", ")
+        return """
+        You are an expert developer skill classifier. Analyze the provided skill and classify it into EXACTLY ONE of the following approved categories:
+
+        [\(taxonomyList)]
+
+        If the skill does not fit any category well, or if you are unsure, default to one of the closest categories or choose the category that fits best.
+
+        Respond with ONLY valid JSON containing a single key "category" whose value is exactly one of the category names listed above (e.g. {"category": "Research & Analysis"}). Do not include any other text, markdown, or explanation.
+        """
+    }
+
+    struct DiscoveryResponse: Codable {
+        let categories: [ProposedCategory]
+    }
+
+    static func discoverTaxonomy(
+        records: [SkillRecord],
+        backend: AIBackend,
+        apiKey: String = ""
+    ) async throws -> [ProposedCategory] {
+        var userPrompt = "Propose categories for the following developer skills:\n\n"
+        for (index, record) in records.enumerated() {
+            let desc = record.description ?? "No description"
+            userPrompt += "\(index + 1). Name: \(record.displayName) (Slug: \(record.slug))\n   Description: \(desc)\n\n"
+        }
+
+        let rawResponse = try await AIBackendRunner.run(
+            systemPrompt: discoverySystemPrompt,
+            userPrompt: userPrompt,
+            backend: backend,
+            apiKey: apiKey
+        )
+
+        let trimmed = rawResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+        
+        func decodeResponse(from text: String) -> [ProposedCategory]? {
+            guard let data = text.data(using: .utf8) else { return nil }
+            return (try? JSONDecoder().decode(DiscoveryResponse.self, from: data))?.categories
+        }
+
+        if let categories = decodeResponse(from: trimmed) {
+            return categories
+        }
+
+        if let jsonString = AIBackendRunner.extractJSONObject(from: trimmed),
+           let categories = decodeResponse(from: jsonString) {
+            return categories
+        }
+
+        throw EvaluationError.invalidJSON(String(trimmed.prefix(300)))
+    }
+
     static func classify(
-        displayName: String,
-        description: String?,
-        contentExcerpt: String,
+        skill: DiscoveredSkill,
+        taxonomy: [String],
         backend: AIBackend,
         apiKey: String = ""
     ) async throws -> SkillCategory {
-        let truncatedExcerpt = contentExcerpt.count > 1000 ? String(contentExcerpt.prefix(1000)) + "\n[...]" : contentExcerpt
+        let content = (try? String(contentsOf: skill.skillMarkdownPath, encoding: .utf8)) ?? ""
+        let excerpt = content.count > 1200 ? String(content.prefix(1200)) : content
+        
+        let systemPrompt = classificationSystemPrompt(taxonomy: taxonomy)
+        
+        let truncatedExcerpt = excerpt.count > 1000 ? String(excerpt.prefix(1000)) + "\n[...]" : excerpt
         let userPrompt = """
         Classify this skill:
-        Name: \(displayName)
-        Description: \(description ?? "None")
+        Name: \(skill.parsedName ?? skill.folderName)
+        Description: \(skill.parsedDescription ?? "None")
         Excerpt from SKILL.md:
         ---
         \(truncatedExcerpt)
@@ -48,34 +123,17 @@ enum SkillClassifier {
             apiKey: apiKey
         )
 
-        return parseCategory(from: rawResponse)
+        return parseCategory(from: rawResponse, taxonomy: taxonomy)
     }
 
-    static func classify(
-        skill: DiscoveredSkill,
-        backend: AIBackend,
-        apiKey: String = ""
-    ) async throws -> SkillCategory {
-        let content = (try? String(contentsOf: skill.skillMarkdownPath, encoding: .utf8)) ?? ""
-        let excerpt = content.count > 1200 ? String(content.prefix(1200)) : content
-        
-        return try await classify(
-            displayName: skill.parsedName ?? skill.folderName,
-            description: skill.parsedDescription,
-            contentExcerpt: excerpt,
-            backend: backend,
-            apiKey: apiKey
-        )
-    }
-
-    private static func parseCategory(from text: String) -> SkillCategory {
+    private static func parseCategory(from text: String, taxonomy: [String]) -> SkillCategory {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         func matchCategory(_ str: String) -> SkillCategory? {
             let normalized = str.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            for cat in SkillCategory.allCases {
-                if cat.rawValue.lowercased() == normalized {
-                    return cat
+            for name in taxonomy {
+                if name.lowercased() == normalized {
+                    return SkillCategory(name: name)
                 }
             }
             return nil
@@ -97,12 +155,16 @@ enum SkillClassifier {
         }
 
         // Fuzzy match fallback: check if category names are present in response text
-        for cat in SkillCategory.allCases {
-            if trimmed.localizedCaseInsensitiveContains(cat.rawValue) {
-                return cat
+        for name in taxonomy {
+            if trimmed.localizedCaseInsensitiveContains(name) {
+                return SkillCategory(name: name)
             }
         }
 
-        return .other
+        // Fallback
+        if let first = taxonomy.first {
+            return SkillCategory(name: first)
+        }
+        return SkillCategory(name: "Other")
     }
 }

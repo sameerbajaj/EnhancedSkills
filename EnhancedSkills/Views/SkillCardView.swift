@@ -36,11 +36,6 @@ struct SkillCardView: View {
             }
 
             HStack(spacing: DS.Spacing.sm) {
-                ForEach(Provider.allCases) { provider in
-                    if record.skills[provider] != nil {
-                        ProviderBadge(provider: provider)
-                    }
-                }
                 CategoryPill(category: category, isClassifying: isClassifying)
 
                 if record.totalViolationCount > 0 {

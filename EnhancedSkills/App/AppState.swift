@@ -95,6 +95,13 @@ class AppState {
     var classifyingSkillSlugs: Set<String> = []
     var categoryFilter: SkillCategory? = nil { didSet { recomputeFilteredRecords() } }
 
+    // MARK: - Dynamic Taxonomy Discover State
+    var showTaxonomySheet: Bool = false
+    var proposedCategories: [ProposedCategory] = []
+    var isDiscoveringTaxonomy: Bool = false
+    var taxonomyError: String? = nil
+
+
 
     // MARK: - Usage Tracking
     var usageTracker: UsageTracker?
@@ -295,8 +302,11 @@ class AppState {
             // Check GitHub divergence for linked skills in background
             Task { await checkAllGitHubDivergence() }
 
-            // Automatically classify uncategorized skills in background
-            Task { await classifyAllUncategorized() }
+            // Automatically classify uncategorized skills in background if taxonomy is set up
+            if categoryStore.hasTaxonomy {
+                Task { await classifyAllUncategorized() }
+            }
+
 
         } catch {
             await MainActor.run { errorMessage = error.localizedDescription; isLoading = false }
@@ -467,6 +477,8 @@ class AppState {
     }
 
     func classifyAllUncategorized() async {
+        guard categoryStore.hasTaxonomy else { return }
+        
         let uncategorized = allRecords.filter { record in
             guard let hash = record.preferredPreviewSource?.contentHash else { return false }
             return category(for: record.slug, currentHash: hash) == nil
@@ -481,6 +493,8 @@ class AppState {
             return
         }
         
+        let taxonomyNames = categoryStore.approvedTaxonomy.map { $0.name }
+        
         for record in uncategorized {
             guard let skill = record.preferredPreviewSource,
                   let hash = skill.contentHash else { continue }
@@ -494,6 +508,7 @@ class AppState {
             do {
                 let category = try await SkillClassifier.classify(
                     skill: skill,
+                    taxonomy: taxonomyNames,
                     backend: backend,
                     apiKey: apiKey
                 )
@@ -511,6 +526,52 @@ class AppState {
             }
         }
     }
+
+    func discoverTaxonomy() async {
+        await MainActor.run {
+            isDiscoveringTaxonomy = true
+            taxonomyError = nil
+        }
+        
+        let backend = settings.aiBackend
+        let apiKey = settings.apiKey(for: backend)
+        
+        if backend.isAPI && apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            await MainActor.run {
+                taxonomyError = "API key is missing in settings"
+                isDiscoveringTaxonomy = false
+            }
+            return
+        }
+        
+        do {
+            let proposed = try await SkillClassifier.discoverTaxonomy(
+                records: allRecords,
+                backend: backend,
+                apiKey: apiKey
+            )
+            await MainActor.run {
+                proposedCategories = proposed
+                isDiscoveringTaxonomy = false
+                showTaxonomySheet = true
+            }
+        } catch {
+            await MainActor.run {
+                taxonomyError = error.localizedDescription
+                isDiscoveringTaxonomy = false
+            }
+        }
+    }
+
+    func approveTaxonomy(_ categories: [String]) {
+        categoryStore.saveTaxonomy(categories)
+        showTaxonomySheet = false
+        recomputeFilteredRecords()
+        Task {
+            await classifyAllUncategorized()
+        }
+    }
+
 
 
     /// Hard reset — used when the user explicitly wants to clear everything.

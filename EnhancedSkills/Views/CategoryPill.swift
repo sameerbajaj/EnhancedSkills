@@ -29,7 +29,7 @@ struct CategoryPill: View {
             HStack(spacing: 3) {
                 Image(systemName: category.icon)
                     .font(.system(size: 9))
-                Text(category.rawValue)
+                Text(category.name)
                     .font(.system(size: 10, weight: .medium))
             }
             .foregroundStyle(category.tint)
