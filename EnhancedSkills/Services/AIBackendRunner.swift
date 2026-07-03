@@ -150,7 +150,7 @@ enum AIBackendRunner {
                 throw EvaluationError.cliNotFound(backend.displayName)
             }
             let fullPrompt = systemPrompt + "\n\n---\n\n" + userPrompt
-            return try await runProcess(executablePath: path, arguments: [fullPrompt])
+            return try await runProcess(executablePath: path, arguments: ["--print", fullPrompt])
         case .anthropicAPI:
             return try await callAnthropicAPI(systemPrompt: systemPrompt, userPrompt: userPrompt, apiKey: apiKey)
         case .openAIAPI:
