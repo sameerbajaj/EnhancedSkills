@@ -3,9 +3,9 @@ import SwiftUI
 struct CategoryPillBar: View {
     @Bindable var state: AppState
 
+    /// Use taxonomy order from the store (not sorted by count).
     private var sortedCategories: [SkillCategory] {
-        let taxonomy = state.categoryStore.approvedTaxonomy
-        return taxonomy.sorted { countForCategory($0) > countForCategory($1) }
+        state.categoryStore.approvedTaxonomy
     }
 
     private func countForCategory(_ category: SkillCategory) -> Int {
@@ -68,51 +68,65 @@ struct CategoryPillBar: View {
                 let top5 = Array(categories.prefix(5))
                 let more = Array(categories.dropFirst(5))
 
-                HStack(spacing: DS.Spacing.sm) {
-                    ForEach(top5) { category in
-                        categoryPill(category)
-                    }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DS.Spacing.sm) {
+                        // "All" pill at position 0
+                        allPill()
 
-                    if !more.isEmpty {
-                        Menu {
-                            ForEach(more) { category in
-                                Button(category.name) {
-                                    withAnimation(.easeInOut(duration: 0.2)) {
-                                        state.categoryFilter = state.categoryFilter == category ? nil : category
+                        ForEach(top5) { category in
+                            categoryPill(category)
+                        }
+
+                        if !more.isEmpty {
+                            Menu {
+                                ForEach(more) { category in
+                                    Button {
+                                        withAnimation(.easeInOut(duration: 0.2)) {
+                                            state.categoryFilter = state.categoryFilter == category ? nil : category
+                                        }
+                                    } label: {
+                                        HStack {
+                                            Text(category.name)
+                                            Spacer()
+                                            Text("\(countForCategory(category))")
+                                                .foregroundStyle(DS.Color.textTertiary)
+                                        }
                                     }
+                                }
+                            } label: {
+                                HStack(spacing: 3) {
+                                    Text("+\(more.count) more")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .lineLimit(1)
+                                    Image(systemName: "chevron.down")
+                                        .font(.system(size: 8))
+                                }
+                                .foregroundStyle(isMoreActive(more) ? DS.Color.accent : DS.Color.textSecondary)
+                                .padding(.horizontal, DS.Spacing.sm)
+                                .padding(.vertical, 4)
+                                .background(isMoreActive(more) ? DS.Color.accentLight : DS.Color.borderLight)
+                                .clipShape(Capsule())
+                            }
+                            .menuStyle(.button)
+                            .buttonStyle(.plain)
+                        }
+
+                        Spacer()
+
+                        Menu {
+                            Button("Re-Discover Categories...") {
+                                Task {
+                                    await state.discoverTaxonomy()
                                 }
                             }
                         } label: {
-                            HStack(spacing: 3) {
-                                Text("+\(more.count) more")
-                                    .font(.system(size: 11, weight: .medium))
-                                Image(systemName: "chevron.down")
-                                    .font(.system(size: 8))
-                            }
-                            .foregroundStyle(isMoreActive(more) ? DS.Color.accent : DS.Color.textSecondary)
-                            .padding(.horizontal, DS.Spacing.sm)
-                            .padding(.vertical, 4)
-                            .background(isMoreActive(more) ? DS.Color.accentLight : DS.Color.borderLight)
-                            .clipShape(Capsule())
+                            Image(systemName: "ellipsis.circle")
+                                .font(.system(size: 14))
+                                .foregroundStyle(DS.Color.textTertiary)
                         }
                         .menuStyle(.button)
                         .buttonStyle(.plain)
                     }
-                    Spacer()
-                    
-                    Menu {
-                        Button("Re-Discover Categories...") {
-                            Task {
-                                await state.discoverTaxonomy()
-                            }
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis.circle")
-                            .font(.system(size: 14))
-                            .foregroundStyle(DS.Color.textTertiary)
-                    }
-                    .menuStyle(.button)
-                    .buttonStyle(.plain)
                 }
             }
         }
@@ -122,6 +136,32 @@ struct CategoryPillBar: View {
         guard let current = state.categoryFilter else { return false }
         return more.contains(current)
     }
+
+    // MARK: - "All" Pill
+
+    @ViewBuilder
+    private func allPill() -> some View {
+        let isActive = state.categoryFilter == nil
+
+        Button {
+            withAnimation(.easeInOut(duration: 0.2)) {
+                state.categoryFilter = nil
+            }
+        } label: {
+            Text("All")
+                .font(.system(size: 11, weight: isActive ? .bold : .medium))
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(isActive ? DS.Color.accent : DS.Color.textSecondary)
+                .padding(.horizontal, DS.Spacing.sm)
+                .padding(.vertical, 4)
+                .background(isActive ? DS.Color.accentLight : DS.Color.borderLight)
+                .clipShape(Capsule())
+        }
+        .buttonStyle(.plain)
+    }
+
+    // MARK: - Category Pill
 
     @ViewBuilder
     private func categoryPill(_ category: SkillCategory) -> some View {
@@ -134,13 +174,14 @@ struct CategoryPillBar: View {
             }
         } label: {
             HStack(spacing: 4) {
-                Image(systemName: category.icon)
-                    .font(.system(size: 9))
-                Text(category.name)
+                Text(category.shortLabel)
                     .font(.system(size: 11, weight: isActive ? .bold : .medium))
+                    .lineLimit(1)
+                    .fixedSize()
                 if count > 0 {
                     Text("\(count)")
-                        .font(.system(size: 9, weight: .bold))
+                        .font(.system(size: 8, weight: .bold))
+                        .baselineOffset(4)
                         .opacity(0.6)
                 }
             }

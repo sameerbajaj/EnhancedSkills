@@ -2,10 +2,12 @@ import SwiftUI
 
 public struct SkillCategory: Codable, Equatable, Hashable, Identifiable {
     public let name: String
+    public let shortLabel: String
     public var id: String { name }
 
-    public init(name: String) {
+    public init(name: String, shortLabel: String? = nil) {
         self.name = name
+        self.shortLabel = shortLabel ?? String(name.prefix(15))
     }
 
     public var tint: Color {

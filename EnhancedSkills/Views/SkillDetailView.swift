@@ -34,6 +34,22 @@ struct DetailContent: View {
                 VStack(alignment: .leading, spacing: DS.Spacing.md) {
                     HStack {
                         StatusPill(status: record.status)
+                        if let cat = state.category(for: record.slug, currentHash: record.preferredPreviewSource?.contentHash) {
+                            Text(cat.name)
+                                .font(.system(size: 11, weight: .medium))
+                                .foregroundStyle(cat.tint)
+                                .padding(.horizontal, DS.Spacing.sm)
+                                .padding(.vertical, 2)
+                                .background(cat.background)
+                                .clipShape(Capsule())
+                                .contextMenu {
+                                    ForEach(state.categoryStore.approvedTaxonomy) { taxonomy in
+                                        Button(taxonomy.name) {
+                                            state.categoryStore.saveCategory(taxonomy, slug: record.slug, contentHash: record.preferredPreviewSource?.contentHash ?? "")
+                                        }
+                                    }
+                                }
+                        }
                         if record.status == .needsSync {
                             Button {
                                 Task { await state.syncNow(record: record) }

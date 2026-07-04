@@ -3,11 +3,13 @@ import Foundation
 public struct ProposedCategory: Codable, Identifiable, Equatable {
     public var id: String { name }
     public var name: String
+    public var shortLabel: String
     public let count: Int
     public let reason: String
 
-    public init(name: String, count: Int, reason: String) {
+    public init(name: String, shortLabel: String? = nil, count: Int, reason: String) {
         self.name = name
+        self.shortLabel = shortLabel ?? String(name.prefix(15))
         self.count = count
         self.reason = reason
     }
@@ -24,7 +26,8 @@ enum SkillClassifier {
     Propose categories that are high-level and clear (e.g. "Research & Analysis", "Content Creation", "Obsidian & PKM", "Task Management", "Git & DevOps", "Web Automation").
 
     Return ONLY a valid JSON object containing an array "categories". Each category must have:
-    - "name": String (2-3 words, capitalized)
+    - "name": String (2-4 words, capitalized, the full descriptive name)
+    - "shortLabel": String (max 15 characters, a concise abbreviation for compact UI display, e.g. "SEO" for "Search Engine Optimization", "Research" for "Research & Automation", "Git & DevOps" for "Git & DevOps")
     - "reason": String (1-sentence reason why these skills belong together)
     - "count": Integer (approximate number of skills in this category)
 
@@ -33,6 +36,7 @@ enum SkillClassifier {
       "categories": [
         {
           "name": "Research & Analysis",
+          "shortLabel": "Research",
           "reason": "Skills focused on gathering, summarizing, and processing data.",
           "count": 12
         }

@@ -6,6 +6,7 @@ import AppKit
 enum SettingsTab: String, CaseIterable, Identifiable {
     case providers  = "Providers"
     case ai         = "AI"
+    case categories = "Categories"
     case github     = "GitHub"
     case appearance = "Appearance"
     case update     = "Update"
@@ -16,6 +17,7 @@ enum SettingsTab: String, CaseIterable, Identifiable {
         switch self {
         case .providers:  "square.grid.2x2"
         case .ai:         "sparkles"
+        case .categories: "tag"
         case .github:     "arrow.triangle.2.circlepath.circle"
         case .appearance: "paintbrush"
         case .update:     "arrow.triangle.2.circlepath"
@@ -74,6 +76,8 @@ struct SettingsView: View {
                     ProvidersSettingsContent(settings: settings)
                 case .ai:
                     AISettingsContent(settings: settings)
+                case .categories:
+                    CategoriesSettingsContent(appState: appState)
                 case .github:
                     GitHubSettingsContent(appState: appState)
                 case .appearance:

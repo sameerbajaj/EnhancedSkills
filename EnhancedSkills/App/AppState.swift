@@ -163,7 +163,7 @@ class AppState {
         recomputeFilteredRecords()
     }
 
-    private func recomputeFilteredRecords() {
+    func recomputeFilteredRecords() {
         var records = allRecords
 
         if let pf = providerFilter {
@@ -563,7 +563,7 @@ class AppState {
         }
     }
 
-    func approveTaxonomy(_ categories: [String]) {
+    func approveTaxonomy(_ categories: [SkillCategory]) {
         categoryStore.saveTaxonomy(categories)
         showTaxonomySheet = false
         recomputeFilteredRecords()
