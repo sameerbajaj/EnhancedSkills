@@ -8,12 +8,19 @@ struct CategoriesSettingsContent: View {
     @State private var newCategoryName: String = ""
     @State private var showingAddField = false
 
+    private var categoryStore: CategoryStore {
+        appState?.categoryStore ?? CategoryStore.shared
+    }
+
     private var taxonomy: [SkillCategory] {
-        appState?.categoryStore.approvedTaxonomy ?? []
+        categoryStore.approvedTaxonomy
     }
 
     private func countForCategory(_ category: SkillCategory) -> Int {
-        guard let state = appState else { return 0 }
+        guard let state = appState else {
+            // If appState is nil, count directly from CategoryStore (we won't have allRecords, but we can return 0)
+            return 0
+        }
         return state.allRecords.filter { record in
             guard let hash = record.preferredPreviewSource?.contentHash else { return false }
             return state.category(for: record.slug, currentHash: hash) == category
@@ -37,7 +44,7 @@ struct CategoriesSettingsContent: View {
 
             Divider()
 
-            if appState?.categoryStore.hasTaxonomy != true {
+            if !categoryStore.hasTaxonomy {
                 // Empty state
                 VStack(spacing: DS.Spacing.md) {
                     Image(systemName: "tag.slash")
@@ -94,19 +101,22 @@ struct CategoriesSettingsContent: View {
 
                                 Spacer()
 
-                                // Skill count badge
-                                let count = countForCategory(category)
-                                Text("\(count)")
-                                    .font(.system(size: 10, weight: .bold))
-                                    .foregroundStyle(DS.Color.textTertiary)
-                                    .padding(.horizontal, DS.Spacing.xs)
-                                    .padding(.vertical, 1)
-                                    .background(DS.Color.borderLight)
-                                    .clipShape(Capsule())
+                                // Skill count badge (only show if appState is available)
+                                if appState != nil {
+                                    let count = countForCategory(category)
+                                    Text("\(count)")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .foregroundStyle(DS.Color.textTertiary)
+                                        .padding(.horizontal, DS.Spacing.xs)
+                                        .padding(.vertical, 1)
+                                        .background(DS.Color.borderLight)
+                                        .clipShape(Capsule())
+                                }
 
                                 // Delete button
                                 Button {
-                                    appState?.categoryStore.removeCategory(category.name)
+                                    categoryStore.removeCategory(category.name)
+                                    appState?.recomputeFilteredRecords()
                                 } label: {
                                     Image(systemName: "trash")
                                         .font(.system(size: 11))
@@ -166,27 +176,29 @@ struct CategoriesSettingsContent: View {
                         .buttonStyle(.plain)
                     }
 
-                    // Re-Discover button
-                    Button {
-                        Task { await appState?.discoverTaxonomy() }
-                    } label: {
-                        HStack(spacing: DS.Spacing.xs) {
-                            Image(systemName: "sparkles")
-                                .font(.system(size: 12))
-                            Text("Re-Discover Categories")
-                                .font(.system(size: 13, weight: .medium))
+                    // Re-Discover button (only if appState is available)
+                    if appState != nil {
+                        Button {
+                            Task { await appState?.discoverTaxonomy() }
+                        } label: {
+                            HStack(spacing: DS.Spacing.xs) {
+                                Image(systemName: "sparkles")
+                                    .font(.system(size: 12))
+                                Text("Re-Discover Categories")
+                                    .font(.system(size: 13, weight: .medium))
+                            }
+                            .foregroundStyle(DS.Color.accent)
+                            .padding(.horizontal, DS.Spacing.md)
+                            .padding(.vertical, DS.Spacing.sm)
+                            .background(DS.Color.accentLight)
+                            .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                    .stroke(DS.Color.accent.opacity(0.3), lineWidth: 1)
+                            )
                         }
-                        .foregroundStyle(DS.Color.accent)
-                        .padding(.horizontal, DS.Spacing.md)
-                        .padding(.vertical, DS.Spacing.sm)
-                        .background(DS.Color.accentLight)
-                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: DS.Radius.sm)
-                                .stroke(DS.Color.accent.opacity(0.3), lineWidth: 1)
-                        )
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, DS.Spacing.xl)
                 .padding(.top, DS.Spacing.lg)
@@ -202,11 +214,12 @@ struct CategoriesSettingsContent: View {
         let newLabel = editedLabels[category.name]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? category.shortLabel
         guard !newName.isEmpty else { return }
         if newName != category.name || newLabel != category.shortLabel {
-            appState?.categoryStore.renameCategory(
+            categoryStore.renameCategory(
                 oldName: category.name,
                 newName: newName,
                 newShortLabel: newLabel
             )
+            appState?.recomputeFilteredRecords()
             // Reset local edit state
             editedNames.removeValue(forKey: category.name)
             editedLabels.removeValue(forKey: category.name)
@@ -217,7 +230,8 @@ struct CategoriesSettingsContent: View {
         let name = newCategoryName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !name.isEmpty else { return }
         let category = SkillCategory(name: name)
-        appState?.categoryStore.addCategory(category)
+        categoryStore.addCategory(category)
+        appState?.recomputeFilteredRecords()
         newCategoryName = ""
         showingAddField = false
     }

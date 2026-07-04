@@ -1,6 +1,10 @@
 import Foundation
+import Observation
 
+@Observable
 class CategoryStore {
+    static let shared = CategoryStore()
+
     private let fileURL: URL
     private var database = CategoryDatabase()
 

@@ -91,7 +91,7 @@ class AppState {
     var evaluationScoreStore = EvaluationScoreStore()
 
     // MARK: - Category Persistence & In-Progress State
-    var categoryStore = CategoryStore()
+    var categoryStore = CategoryStore.shared
     var classifyingSkillSlugs: Set<String> = []
     var categoryFilter: SkillCategory? = nil { didSet { recomputeFilteredRecords() } }
 

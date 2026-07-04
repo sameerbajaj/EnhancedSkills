@@ -68,65 +68,66 @@ struct CategoryPillBar: View {
                 let top5 = Array(categories.prefix(5))
                 let more = Array(categories.dropFirst(5))
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: DS.Spacing.sm) {
-                        // "All" pill at position 0
-                        allPill()
+                HStack(spacing: DS.Spacing.sm) {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: DS.Spacing.sm) {
+                            // "All" pill at position 0
+                            allPill()
 
-                        ForEach(top5) { category in
-                            categoryPill(category)
-                        }
+                            ForEach(top5) { category in
+                                categoryPill(category)
+                            }
 
-                        if !more.isEmpty {
-                            Menu {
-                                ForEach(more) { category in
-                                    Button {
-                                        withAnimation(.easeInOut(duration: 0.2)) {
-                                            state.categoryFilter = state.categoryFilter == category ? nil : category
-                                        }
-                                    } label: {
-                                        HStack {
-                                            Text(category.name)
-                                            Spacer()
-                                            Text("\(countForCategory(category))")
-                                                .foregroundStyle(DS.Color.textTertiary)
+                            if !more.isEmpty {
+                                Menu {
+                                    ForEach(more) { category in
+                                        Button {
+                                            withAnimation(.easeInOut(duration: 0.2)) {
+                                                state.categoryFilter = state.categoryFilter == category ? nil : category
+                                            }
+                                        } label: {
+                                            HStack {
+                                                Text(category.name)
+                                                Spacer()
+                                                Text("\(countForCategory(category))")
+                                                    .foregroundStyle(DS.Color.textTertiary)
+                                            }
                                         }
                                     }
+                                } label: {
+                                    HStack(spacing: 3) {
+                                        Text("+\(more.count) more")
+                                            .font(.system(size: 11, weight: .medium))
+                                            .lineLimit(1)
+                                        Image(systemName: "chevron.down")
+                                            .font(.system(size: 8))
+                                    }
+                                    .foregroundStyle(isMoreActive(more) ? DS.Color.accent : DS.Color.textSecondary)
+                                    .padding(.horizontal, DS.Spacing.sm)
+                                    .padding(.vertical, 4)
+                                    .background(isMoreActive(more) ? DS.Color.accentLight : DS.Color.borderLight)
+                                    .clipShape(Capsule())
                                 }
-                            } label: {
-                                HStack(spacing: 3) {
-                                    Text("+\(more.count) more")
-                                        .font(.system(size: 11, weight: .medium))
-                                        .lineLimit(1)
-                                    Image(systemName: "chevron.down")
-                                        .font(.system(size: 8))
-                                }
-                                .foregroundStyle(isMoreActive(more) ? DS.Color.accent : DS.Color.textSecondary)
-                                .padding(.horizontal, DS.Spacing.sm)
-                                .padding(.vertical, 4)
-                                .background(isMoreActive(more) ? DS.Color.accentLight : DS.Color.borderLight)
-                                .clipShape(Capsule())
+                                .menuStyle(.button)
+                                .buttonStyle(.plain)
                             }
-                            .menuStyle(.button)
-                            .buttonStyle(.plain)
                         }
-
-                        Spacer()
-
-                        Menu {
-                            Button("Re-Discover Categories...") {
-                                Task {
-                                    await state.discoverTaxonomy()
-                                }
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 14))
-                                .foregroundStyle(DS.Color.textTertiary)
-                        }
-                        .menuStyle(.button)
-                        .buttonStyle(.plain)
                     }
+
+                    // Static ellipsis menu anchored outside the ScrollView
+                    Menu {
+                        Button("Re-Discover Categories...") {
+                            Task {
+                                await state.discoverTaxonomy()
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                            .font(.system(size: 14))
+                            .foregroundStyle(DS.Color.textTertiary)
+                    }
+                    .menuStyle(.button)
+                    .buttonStyle(.plain)
                 }
             }
         }
@@ -173,19 +174,25 @@ struct CategoryPillBar: View {
                 state.categoryFilter = isActive ? nil : category
             }
         } label: {
-            HStack(spacing: 4) {
-                Text(category.shortLabel)
+            let labelText = Text(category.shortLabel)
+            
+            HStack(spacing: 0) {
+                if count > 0 {
+                    (labelText + Text(" \(count)")
+                        .font(.system(size: 8, weight: .bold))
+                        .baselineOffset(4))
                     .font(.system(size: 11, weight: isActive ? .bold : .medium))
                     .lineLimit(1)
                     .fixedSize()
-                if count > 0 {
-                    Text("\(count)")
-                        .font(.system(size: 8, weight: .bold))
-                        .baselineOffset(4)
-                        .opacity(0.6)
+                    .foregroundStyle(isActive ? category.tint : DS.Color.textSecondary)
+                } else {
+                    labelText
+                        .font(.system(size: 11, weight: isActive ? .bold : .medium))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .foregroundStyle(isActive ? category.tint : DS.Color.textSecondary)
                 }
             }
-            .foregroundStyle(isActive ? category.tint : DS.Color.textSecondary)
             .padding(.horizontal, DS.Spacing.sm)
             .padding(.vertical, 4)
             .background(isActive ? category.background : DS.Color.borderLight)
