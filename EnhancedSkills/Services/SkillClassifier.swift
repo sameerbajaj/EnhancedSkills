@@ -127,10 +127,13 @@ enum SkillClassifier {
             apiKey: apiKey
         )
 
-        return parseCategory(from: rawResponse, taxonomy: taxonomy)
+        guard let parsed = parseCategory(from: rawResponse, taxonomy: taxonomy) else {
+            throw EvaluationError.invalidJSON("Failed to parse classification category from LLM output: \(rawResponse)")
+        }
+        return parsed
     }
 
-    private static func parseCategory(from text: String, taxonomy: [String]) -> SkillCategory {
+    private static func parseCategory(from text: String, taxonomy: [String]) -> SkillCategory? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         func matchCategory(_ str: String) -> SkillCategory? {
@@ -165,10 +168,6 @@ enum SkillClassifier {
             }
         }
 
-        // Fallback
-        if let first = taxonomy.first {
-            return SkillCategory(name: first)
-        }
-        return SkillCategory(name: "Other")
+        return nil
     }
 }

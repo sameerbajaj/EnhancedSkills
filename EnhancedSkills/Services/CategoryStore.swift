@@ -144,4 +144,11 @@ class CategoryStore {
         database.records.removeValue(forKey: slug)
         save()
     }
+
+    /// Resets all taxonomy categories and assignments.
+    func resetTaxonomy() {
+        database.approvedTaxonomy = []
+        database.records = [:]
+        save()
+    }
 }

@@ -176,25 +176,50 @@ struct CategoriesSettingsContent: View {
                         .buttonStyle(.plain)
                     }
 
-                    // Re-Discover button (only if appState is available)
-                    if appState != nil {
+                    // Bottom actions
+                    HStack(spacing: DS.Spacing.md) {
+                        if appState != nil {
+                            Button {
+                                Task { await appState?.discoverTaxonomy() }
+                            } label: {
+                                HStack(spacing: DS.Spacing.xs) {
+                                    Image(systemName: "sparkles")
+                                        .font(.system(size: 12))
+                                    Text("Re-Discover Categories")
+                                        .font(.system(size: 13, weight: .medium))
+                                }
+                                .foregroundStyle(DS.Color.accent)
+                                .padding(.horizontal, DS.Spacing.md)
+                                .padding(.vertical, DS.Spacing.sm)
+                                .background(DS.Color.accentLight)
+                                .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                                .overlay(
+                                    RoundedRectangle(cornerRadius: DS.Radius.sm)
+                                        .stroke(DS.Color.accent.opacity(0.3), lineWidth: 1)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                        }
+
                         Button {
-                            Task { await appState?.discoverTaxonomy() }
+                            categoryStore.resetTaxonomy()
+                            appState?.categoryFilter = nil
+                            appState?.recomputeFilteredRecords()
                         } label: {
                             HStack(spacing: DS.Spacing.xs) {
-                                Image(systemName: "sparkles")
+                                Image(systemName: "trash")
                                     .font(.system(size: 12))
-                                Text("Re-Discover Categories")
+                                Text("Reset Taxonomy & Assignments")
                                     .font(.system(size: 13, weight: .medium))
                             }
-                            .foregroundStyle(DS.Color.accent)
+                            .foregroundStyle(DS.Color.invalid)
                             .padding(.horizontal, DS.Spacing.md)
                             .padding(.vertical, DS.Spacing.sm)
-                            .background(DS.Color.accentLight)
+                            .background(DS.Color.invalid.opacity(0.12))
                             .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
                             .overlay(
                                 RoundedRectangle(cornerRadius: DS.Radius.sm)
-                                    .stroke(DS.Color.accent.opacity(0.3), lineWidth: 1)
+                                    .stroke(DS.Color.invalid.opacity(0.3), lineWidth: 1)
                             )
                         }
                         .buttonStyle(.plain)
