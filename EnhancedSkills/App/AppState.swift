@@ -545,8 +545,10 @@ class AppState {
         }
         
         do {
+            // Cap at 25 representative skills to prevent token limit truncation or CLI arg overload
+            let representativeRecords = Array(allRecords.prefix(25))
             let proposed = try await SkillClassifier.discoverTaxonomy(
-                records: allRecords,
+                records: representativeRecords,
                 backend: backend,
                 apiKey: apiKey
             )
@@ -556,6 +558,7 @@ class AppState {
                 showTaxonomySheet = true
             }
         } catch {
+            print("discoverTaxonomy failed: \(error)")
             await MainActor.run {
                 taxonomyError = error.localizedDescription
                 isDiscoveringTaxonomy = false
