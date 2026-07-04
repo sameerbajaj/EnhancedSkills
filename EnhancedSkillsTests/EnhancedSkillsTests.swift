@@ -181,7 +181,10 @@ struct TransferServiceTests {
 @Suite("CategoryStore")
 struct CategoryStoreTests {
     @Test func persistsAndRestoresCategory() throws {
-        let store = CategoryStore()
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        
+        let store = CategoryStore(fileURL: tempURL)
         store.load()
         
         let testSlug = "test-category-slug"
@@ -191,7 +194,7 @@ struct CategoryStoreTests {
         store.saveCategory(category, slug: testSlug, contentHash: testHash)
         
         // Load in a fresh store to verify persistence
-        let store2 = CategoryStore()
+        let store2 = CategoryStore(fileURL: tempURL)
         store2.load()
         
         let restored = store2.freshCategory(for: testSlug, currentHash: testHash)

@@ -1,15 +1,20 @@
 import Foundation
 
 class CategoryStore {
-    private static let fileURL: URL = {
-        let home = FileManager.default.homeDirectoryForCurrentUser
-        return home.appendingPathComponent(".enhanced-skills/skill-categories.json")
-    }()
-
+    private let fileURL: URL
     private var database = CategoryDatabase()
 
+    init(fileURL: URL? = nil) {
+        if let custom = fileURL {
+            self.fileURL = custom
+        } else {
+            let home = FileManager.default.homeDirectoryForCurrentUser
+            self.fileURL = home.appendingPathComponent(".enhanced-skills/skill-categories.json")
+        }
+    }
+
     func load() {
-        guard let data = try? Data(contentsOf: Self.fileURL) else { return }
+        guard let data = try? Data(contentsOf: fileURL) else { return }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
         if let db = try? decoder.decode(CategoryDatabase.self, from: data) {
@@ -18,7 +23,7 @@ class CategoryStore {
     }
 
     private func save() {
-        let url = Self.fileURL
+        let url = fileURL
         let fm = FileManager.default
         let dir = url.deletingLastPathComponent()
         if !fm.fileExists(atPath: dir.path) {
