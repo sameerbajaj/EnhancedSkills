@@ -5,7 +5,7 @@ struct CategoryPillBar: View {
 
     /// Use taxonomy order from the store (not sorted by count).
     private var sortedCategories: [SkillCategory] {
-        state.categoryStore.approvedTaxonomy
+        state.categoryStore.approvedTaxonomy.filter { countForCategory($0) > 0 }
     }
 
     private func countForCategory(_ category: SkillCategory) -> Int {
