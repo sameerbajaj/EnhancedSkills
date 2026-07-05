@@ -121,7 +121,10 @@ class CategoryStore {
               record.contentHash == currentHash else {
             return nil
         }
-        if hasTaxonomy && !database.approvedTaxonomy.contains(where: { $0.name == record.category.name }) {
+        if hasTaxonomy {
+            if let approved = database.approvedTaxonomy.first(where: { $0.name.lowercased() == record.category.name.lowercased() }) {
+                return approved
+            }
             return nil
         }
         return record.category

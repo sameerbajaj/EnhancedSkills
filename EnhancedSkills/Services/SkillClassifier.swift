@@ -100,14 +100,15 @@ enum SkillClassifier {
 
     static func classify(
         skill: DiscoveredSkill,
-        taxonomy: [String],
+        taxonomy: [SkillCategory],
         backend: AIBackend,
         apiKey: String = ""
     ) async throws -> SkillCategory {
         let content = (try? String(contentsOf: skill.skillMarkdownPath, encoding: .utf8)) ?? ""
         let excerpt = content.count > 1200 ? String(content.prefix(1200)) : content
         
-        let systemPrompt = classificationSystemPrompt(taxonomy: taxonomy)
+        let taxonomyNames = taxonomy.map { $0.name }
+        let systemPrompt = classificationSystemPrompt(taxonomy: taxonomyNames)
         
         let truncatedExcerpt = excerpt.count > 1000 ? String(excerpt.prefix(1000)) + "\n[...]" : excerpt
         let userPrompt = """
@@ -133,14 +134,14 @@ enum SkillClassifier {
         return parsed
     }
 
-    private static func parseCategory(from text: String, taxonomy: [String]) -> SkillCategory? {
+    private static func parseCategory(from text: String, taxonomy: [SkillCategory]) -> SkillCategory? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
 
         func matchCategory(_ str: String) -> SkillCategory? {
             let normalized = str.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            for name in taxonomy {
-                if name.lowercased() == normalized {
-                    return SkillCategory(name: name)
+            for cat in taxonomy {
+                if cat.name.lowercased() == normalized {
+                    return cat
                 }
             }
             return nil
@@ -162,9 +163,9 @@ enum SkillClassifier {
         }
 
         // Fuzzy match fallback: check if category names are present in response text
-        for name in taxonomy {
-            if trimmed.localizedCaseInsensitiveContains(name) {
-                return SkillCategory(name: name)
+        for cat in taxonomy {
+            if trimmed.localizedCaseInsensitiveContains(cat.name) {
+                return cat
             }
         }
 

@@ -493,36 +493,53 @@ class AppState {
             return
         }
         
-        let taxonomyNames = categoryStore.approvedTaxonomy.map { $0.name }
+        let taxonomy = categoryStore.approvedTaxonomy
+        let concurrencyLimit = 5
         
-        for record in uncategorized {
-            guard let skill = record.preferredPreviewSource,
-                  let hash = skill.contentHash else { continue }
-            
-            let slug = record.slug
-            
-            await MainActor.run {
-                _ = classifyingSkillSlugs.insert(slug)
+        await withTaskGroup(of: Void.self) { group in
+            var activeCount = 0
+            for record in uncategorized {
+                guard let skill = record.preferredPreviewSource,
+                      let hash = skill.contentHash else { continue }
+                
+                let slug = record.slug
+                
+                if activeCount >= concurrencyLimit {
+                    _ = await group.next()
+                    activeCount -= 1
+                }
+                
+                activeCount += 1
+                group.addTask {
+                    await MainActor.run {
+                        _ = self.classifyingSkillSlugs.insert(slug)
+                    }
+                    
+                    do {
+                        let category = try await SkillClassifier.classify(
+                            skill: skill,
+                            taxonomy: taxonomy,
+                            backend: backend,
+                            apiKey: apiKey
+                        )
+                        
+                        await MainActor.run {
+                            self.categoryStore.saveCategory(category, slug: slug, contentHash: hash)
+                            _ = self.classifyingSkillSlugs.remove(slug)
+                            self.recomputeFilteredRecords()
+                        }
+                    } catch {
+                        await MainActor.run {
+                            _ = self.classifyingSkillSlugs.remove(slug)
+                        }
+                        print("Failed to classify skill \(slug): \(error)")
+                    }
+                }
             }
             
-            do {
-                let category = try await SkillClassifier.classify(
-                    skill: skill,
-                    taxonomy: taxonomyNames,
-                    backend: backend,
-                    apiKey: apiKey
-                )
-                
-                await MainActor.run {
-                    categoryStore.saveCategory(category, slug: slug, contentHash: hash)
-                    _ = classifyingSkillSlugs.remove(slug)
-                    recomputeFilteredRecords()
-                }
-            } catch {
-                await MainActor.run {
-                    _ = classifyingSkillSlugs.remove(slug)
-                }
-                print("Failed to classify skill \(slug): \(error)")
+            while activeCount > 0 {
+                _ = await group.next()
+                activeCount -= 1
             }
         }
     }

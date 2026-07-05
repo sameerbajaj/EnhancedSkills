@@ -204,4 +204,29 @@ struct CategoryStoreTests {
         let restoredInvalidHash = store2.freshCategory(for: testSlug, currentHash: "wrong-hash")
         #expect(restoredInvalidHash == nil)
     }
+
+    @Test func testResolvesApprovedTaxonomyCategory() throws {
+        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".json")
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        
+        let store = CategoryStore(fileURL: tempURL)
+        store.load()
+        
+        let testSlug = "test-seo-slug"
+        let testHash = "hash-54321"
+        
+        // Category stored during classification has default short label ("Search Engine O")
+        let storedCategory = SkillCategory(name: "Search Engine Optimization")
+        store.saveCategory(storedCategory, slug: testSlug, contentHash: testHash)
+        
+        // Taxonomy has approved entry with custom short label ("SEO")
+        let approvedCategory = SkillCategory(name: "Search Engine Optimization", shortLabel: "SEO")
+        store.saveTaxonomy([approvedCategory])
+        
+        // freshCategory should resolve to the approved category with "SEO" short label
+        let resolved = store.freshCategory(for: testSlug, currentHash: testHash)
+        #expect(resolved != nil)
+        #expect(resolved?.shortLabel == "SEO")
+        #expect(resolved?.name == "Search Engine Optimization")
+    }
 }
