@@ -47,10 +47,27 @@ struct SkillRecord: Identifiable, Equatable {
     func skill(for provider: Provider) -> DiscoveredSkill? { skills[provider] }
 
     var preferredPreviewSource: DiscoveredSkill? {
+        // Prefer a canonical real source over a symlinked copy for preview
+        if let canonical = canonicalSource { return canonical }
         for p in Provider.allCases {
             if let s = skills[p] { return s }
         }
         return nil
+    }
+
+    /// The primary physical skill directory (not a symlink)
+    var canonicalSource: DiscoveredSkill? {
+        skills.values.first { !$0.isSymlink }
+    }
+
+    /// Providers whose local directory is a symlink
+    var symlinkedProviders: [Provider] {
+        skills.filter { $0.value.isSymlink }.map(\.key)
+    }
+
+    /// Whether any provider copy is a symlink
+    var hasSymlinks: Bool {
+        skills.values.contains { $0.isSymlink }
     }
 
     var totalViolationCount: Int {

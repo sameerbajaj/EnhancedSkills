@@ -313,15 +313,32 @@ class AppState {
         }
     }
 
-    func syncNow(record: SkillRecord) async {
+    func syncNow(record: SkillRecord, mode: TransferMode = .symlink) async {
         await MainActor.run { isSyncing = true; syncError = nil }
         do {
-            try TransferService.syncAll(record: record, settings: settings)
+            try TransferService.syncAll(record: record, settings: settings, mode: mode)
             await MainActor.run { isSyncing = false }
             await refresh()
         } catch {
             await MainActor.run { isSyncing = false; syncError = error.localizedDescription }
         }
+    }
+
+    func unlinkSkill(record: SkillRecord) async {
+        await MainActor.run { isSyncing = true; syncError = nil }
+        do {
+            for (_, skill) in record.skills where skill.isSymlink {
+                try TransferService.materializeSymlink(at: skill.skillPath)
+            }
+            await MainActor.run { isSyncing = false }
+            await refresh()
+        } catch {
+            await MainActor.run { isSyncing = false; syncError = error.localizedDescription }
+        }
+    }
+
+    func convertToSymlink(record: SkillRecord) async {
+        await syncNow(record: record, mode: .symlink)
     }
 
     func toggleSyncPreference(for record: SkillRecord) {
@@ -334,15 +351,16 @@ class AppState {
         guard let record = selectedRecord else { return }
         do {
             let destRoot = settings.rootPath(for: destination)
-            transferPlan = try TransferService.buildPlan(for: record, to: destination, destinationRoot: destRoot)
+            transferPlan = try TransferService.buildPlan(for: record, to: destination, destinationRoot: destRoot, mode: .symlink)
             showTransferSheet = true
         } catch {
             transferError = error.localizedDescription
         }
     }
 
-    func confirmTransfer() async {
-        guard let plan = transferPlan else { return }
+    func confirmTransfer(mode: TransferMode = .symlink) async {
+        guard var plan = transferPlan else { return }
+        plan.mode = mode
         await MainActor.run { isTransferring = true; transferError = nil }
         do {
             try TransferService.execute(plan: plan)
@@ -359,7 +377,7 @@ class AppState {
         guard missingProviders.count >= 2 else { return }
         do {
             let plans = try missingProviders.map { dest in
-                try TransferService.buildPlan(for: record, to: dest, destinationRoot: settings.rootPath(for: dest))
+                try TransferService.buildPlan(for: record, to: dest, destinationRoot: settings.rootPath(for: dest), mode: .symlink)
             }
             transferPlans = plans
             showTransferSheet = true
@@ -368,11 +386,12 @@ class AppState {
         }
     }
 
-    func confirmTransferAll() async {
+    func confirmTransferAll(mode: TransferMode = .symlink) async {
         guard let plans = transferPlans else { return }
         await MainActor.run { isTransferring = true; transferError = nil }
         do {
-            for plan in plans {
+            for var plan in plans {
+                plan.mode = mode
                 try TransferService.execute(plan: plan)
             }
             await MainActor.run { isTransferring = false; showTransferSheet = false; transferPlans = nil }

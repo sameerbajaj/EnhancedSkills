@@ -44,8 +44,14 @@ struct SkillInventory {
             let provider = r.skills.keys.first!
             return SkillStatus.onlyStatus(for: provider)
         default:
+            // If all non-canonical copies are symlinks, they are physically in sync with canonical source
+            let realCopies = r.skills.values.filter { !$0.isSymlink }
+            if realCopies.count <= 1 {
+                return .synced
+            }
+            // Multiple independent physical copies exist — check content hashes if sync is enabled
             if r.syncEnabled {
-                let hashes = Set(r.skills.values.compactMap(\.contentHash))
+                let hashes = Set(realCopies.compactMap(\.contentHash))
                 if hashes.count > 1 { return .needsSync }
             }
             return .synced

@@ -174,6 +174,36 @@ struct TransferServiceTests {
         #expect(!FileManager.default.fileExists(atPath: destDir.appendingPathComponent("OLD.md").path))
         #expect(FileManager.default.fileExists(atPath: destDir.appendingPathComponent("SKILL.md").path))
     }
+
+    @Test func createsSymlinkAndResolvesContent() throws {
+        let srcDir = try makeSkillDir(name: "symlink-skill")
+        let destRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let destDir = destRoot.appendingPathComponent("symlink-skill")
+
+        try TransferService.executeAsSymlink(sourcePath: srcDir, destinationPath: destDir)
+
+        #expect(TransferService.isSymlink(at: destDir))
+        #expect(TransferService.resolvedSymlink(at: destDir)?.path == srcDir.path)
+        #expect(FileManager.default.fileExists(atPath: destDir.appendingPathComponent("SKILL.md").path))
+
+        // Modify source and verify instant update via symlink
+        try "updated content".write(to: srcDir.appendingPathComponent("SKILL.md"), atomically: true, encoding: .utf8)
+        let readContent = try String(contentsOf: destDir.appendingPathComponent("SKILL.md"), encoding: .utf8)
+        #expect(readContent == "updated content")
+    }
+
+    @Test func materializesSymlinkIntoRealDirectory() throws {
+        let srcDir = try makeSkillDir(name: "materialize-skill")
+        let destRoot = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let destDir = destRoot.appendingPathComponent("materialize-skill")
+
+        try TransferService.executeAsSymlink(sourcePath: srcDir, destinationPath: destDir)
+        #expect(TransferService.isSymlink(at: destDir))
+
+        try TransferService.materializeSymlink(at: destDir)
+        #expect(!TransferService.isSymlink(at: destDir))
+        #expect(FileManager.default.fileExists(atPath: destDir.appendingPathComponent("SKILL.md").path))
+    }
 }
 
 // MARK: - CategoryStore Tests

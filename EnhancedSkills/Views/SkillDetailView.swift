@@ -194,14 +194,53 @@ struct DetailContent: View {
                         }
                     }
 
-                    // Keep in Sync toggle
+                    // Keep in Sync / Symlink section
                     if record.skills.count >= 2 || record.syncEnabled {
-                        Toggle("Keep in Sync", isOn: Binding(
-                            get: { record.syncEnabled },
-                            set: { _ in state.toggleSyncPreference(for: record) }
-                        ))
-                        .toggleStyle(.switch)
-                        .controlSize(.small)
+                        VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                            if record.hasSymlinks {
+                                HStack(spacing: DS.Spacing.xs) {
+                                    Image(systemName: "link")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(DS.Color.synced)
+                                    Text("Linked via Symlink (\(record.symlinkedProviders.map(\.displayName).joined(separator: ", ")))")
+                                        .font(.system(size: 11, weight: .medium))
+                                        .foregroundStyle(DS.Color.synced)
+                                    Spacer()
+                                    Button("Unlink") {
+                                        Task { await state.unlinkSkill(record: record) }
+                                    }
+                                    .buttonStyle(.plain)
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(DS.Color.textSecondary)
+                                    .padding(.horizontal, DS.Spacing.xs)
+                                    .padding(.vertical, 2)
+                                    .background(DS.Color.borderLight)
+                                    .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                                }
+                            } else {
+                                HStack {
+                                    Toggle("Keep in Sync", isOn: Binding(
+                                        get: { record.syncEnabled },
+                                        set: { _ in state.toggleSyncPreference(for: record) }
+                                    ))
+                                    .toggleStyle(.switch)
+                                    .controlSize(.small)
+
+                                    if record.skills.count >= 2 {
+                                        Button("Convert to Symlink") {
+                                            Task { await state.convertToSymlink(record: record) }
+                                        }
+                                        .buttonStyle(.plain)
+                                        .font(.system(size: 11, weight: .semibold))
+                                        .foregroundStyle(DS.Color.accent)
+                                        .padding(.horizontal, DS.Spacing.xs)
+                                        .padding(.vertical, 2)
+                                        .background(DS.Color.canvas)
+                                        .clipShape(RoundedRectangle(cornerRadius: DS.Radius.sm))
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 

@@ -19,12 +19,12 @@ enum TransferError: LocalizedError {
 }
 
 struct TransferService {
-    static func buildPlan(for record: SkillRecord, to destination: Provider, destinationRoot: URL?) throws -> SkillTransferPlan {
-        // Find a source skill from any other provider
+    static func buildPlan(for record: SkillRecord, to destination: Provider, destinationRoot: URL?, mode: TransferMode = .symlink) throws -> SkillTransferPlan {
+        // Find a source skill from any other provider (prefer canonical real directory)
         let source: DiscoveredSkill
         let candidates = record.skills.values
             .filter { $0.provider != destination }
-        guard let s = candidates.first else { throw TransferError.noSource }
+        guard let s = record.canonicalSource ?? candidates.first else { throw TransferError.noSource }
         source = s
 
         guard let destRoot = destinationRoot else {
@@ -32,7 +32,7 @@ struct TransferService {
         }
 
         let destPath = destRoot.appendingPathComponent(source.folderName)
-        let destExists = FileManager.default.fileExists(atPath: destPath.path)
+        let destExists = FileManager.default.fileExists(atPath: destPath.path) || isSymlink(at: destPath)
         let fileCount = countItems(at: source.skillPath)
 
         return SkillTransferPlan(
@@ -44,52 +44,114 @@ struct TransferService {
             sourceFileCount: fileCount,
             destinationExists: destExists,
             willReplace: destExists,
-            warnings: destExists ? ["Existing skill at destination will be replaced."] : []
+            warnings: destExists ? ["Existing skill at destination will be replaced."] : [],
+            mode: mode
         )
     }
 
-    static func syncAll(record: SkillRecord, settings: SettingsStore) throws {
+    static func syncAll(record: SkillRecord, settings: SettingsStore, mode: TransferMode = .symlink) throws {
         guard record.skills.count >= 2 else { return }
 
-        // Find the newest copy by lastModified
-        let sorted = record.skills.values.sorted {
+        // Determine canonical source (prefer non-symlink with newest modification date)
+        let realCopies = record.skills.values.filter { !$0.isSymlink }
+        guard let canonical = realCopies.sorted(by: {
             ($0.lastModified ?? .distantPast) > ($1.lastModified ?? .distantPast)
-        }
-        guard let newest = sorted.first else { return }
+        }).first ?? record.skills.values.first else { return }
 
-        // Overwrite every other provider's copy with the newest
-        for (provider, _) in record.skills where provider != newest.provider {
+        for (provider, skill) in record.skills where provider != canonical.provider {
             guard let destRoot = settings.rootPath(for: provider) else { continue }
-            let plan = SkillTransferPlan(
-                skillSlug: record.slug,
-                sourceProvider: newest.provider,
-                destinationProvider: provider,
-                sourcePath: newest.skillPath,
-                destinationPath: destRoot.appendingPathComponent(newest.folderName),
-                sourceFileCount: 0,
-                destinationExists: true,
-                willReplace: true,
-                warnings: []
-            )
-            try execute(plan: plan)
+            let destPath = destRoot.appendingPathComponent(canonical.folderName)
+
+            switch mode {
+            case .symlink:
+                // Skip if already a symlink pointing to the canonical source
+                if skill.isSymlink, let target = resolvedSymlink(at: skill.skillPath), target.path == canonical.skillPath.path {
+                    continue
+                }
+                try executeAsSymlink(sourcePath: canonical.skillPath, destinationPath: destPath)
+
+            case .copy:
+                let plan = SkillTransferPlan(
+                    skillSlug: record.slug,
+                    sourceProvider: canonical.provider,
+                    destinationProvider: provider,
+                    sourcePath: canonical.skillPath,
+                    destinationPath: destPath,
+                    sourceFileCount: 0,
+                    destinationExists: true,
+                    willReplace: true,
+                    warnings: [],
+                    mode: .copy
+                )
+                try execute(plan: plan)
+            }
         }
     }
 
-    static func execute(plan: SkillTransferPlan) throws {
+    /// Create a directory symbolic link pointing from destinationPath -> sourcePath
+    static func executeAsSymlink(sourcePath: URL, destinationPath: URL) throws {
         let fm = FileManager.default
-        let destRoot = plan.destinationPath.deletingLastPathComponent()
+        let destRoot = destinationPath.deletingLastPathComponent()
 
         if !fm.fileExists(atPath: destRoot.path) {
             do { try fm.createDirectory(at: destRoot, withIntermediateDirectories: true) }
             catch { throw TransferError.rootCreationFailed(destRoot, error) }
         }
 
-        if fm.fileExists(atPath: plan.destinationPath.path) {
-            try fm.removeItem(at: plan.destinationPath)
+        // Remove existing item or symlink at destination
+        if fm.fileExists(atPath: destinationPath.path) || isSymlink(at: destinationPath) {
+            try fm.removeItem(at: destinationPath)
         }
 
-        do { try copyDir(from: plan.sourcePath, to: plan.destinationPath) }
-        catch { throw TransferError.copyFailed(plan.sourcePath, plan.destinationPath, error) }
+        // Create symbolic link
+        try fm.createSymbolicLink(at: destinationPath, withDestinationURL: sourcePath)
+    }
+
+    /// Check if a path is a symbolic link
+    static func isSymlink(at url: URL) -> Bool {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+        return (attrs?[.type] as? FileAttributeType) == .typeSymbolicLink
+    }
+
+    /// Resolve a symbolic link to its target URL
+    static func resolvedSymlink(at url: URL) -> URL? {
+        guard isSymlink(at: url) else { return nil }
+        guard let dest = try? FileManager.default.destinationOfSymbolicLink(atPath: url.path) else { return nil }
+        return URL(fileURLWithPath: dest, relativeTo: url.deletingLastPathComponent()).standardizedFileURL
+    }
+
+    /// Convert a symlink into an independent physical copy
+    static func materializeSymlink(at url: URL) throws {
+        guard isSymlink(at: url) else { return }
+        let resolvedSrc = url.resolvingSymlinksInPath()
+        let fm = FileManager.default
+        let tmp = fm.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        
+        try copyDir(from: resolvedSrc, to: tmp)
+        try fm.removeItem(at: url)
+        try fm.moveItem(at: tmp, to: url)
+    }
+
+    static func execute(plan: SkillTransferPlan) throws {
+        switch plan.mode {
+        case .symlink:
+            try executeAsSymlink(sourcePath: plan.sourcePath, destinationPath: plan.destinationPath)
+        case .copy:
+            let fm = FileManager.default
+            let destRoot = plan.destinationPath.deletingLastPathComponent()
+
+            if !fm.fileExists(atPath: destRoot.path) {
+                do { try fm.createDirectory(at: destRoot, withIntermediateDirectories: true) }
+                catch { throw TransferError.rootCreationFailed(destRoot, error) }
+            }
+
+            if fm.fileExists(atPath: plan.destinationPath.path) || isSymlink(at: plan.destinationPath) {
+                try fm.removeItem(at: plan.destinationPath)
+            }
+
+            do { try copyDir(from: plan.sourcePath, to: plan.destinationPath) }
+            catch { throw TransferError.copyFailed(plan.sourcePath, plan.destinationPath, error) }
+        }
     }
 
     private static func copyDir(from src: URL, to dst: URL) throws {

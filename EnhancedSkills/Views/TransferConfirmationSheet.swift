@@ -6,6 +6,8 @@ struct TransferConfirmationSheet: View {
     @Bindable var state: AppState
     @Environment(\.dismiss) var dismiss
 
+    @State private var selectedMode: TransferMode = .symlink
+
     // Multi-plan convenience
     private var isMulti: Bool { plans != nil }
     private var willReplaceAny: Bool {
@@ -20,9 +22,28 @@ struct TransferConfirmationSheet: View {
                 Text("Confirm Transfer")
                     .font(.system(size: 22, weight: .black))
                     .foregroundStyle(DS.Color.text)
-                Text("Review the details before copying this skill.")
+                Text("Choose transfer mode and review details.")
                     .font(.system(size: 13))
                     .foregroundStyle(DS.Color.textSecondary)
+            }
+
+            // Transfer Mode Picker
+            VStack(alignment: .leading, spacing: DS.Spacing.xs) {
+                Text("TRANSFER MODE")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(DS.Color.textTertiary)
+
+                Picker("Transfer Mode", selection: $selectedMode) {
+                    ForEach(TransferMode.allCases) { mode in
+                        Text(mode.displayName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+
+                Text(selectedMode.description)
+                    .font(.system(size: 11))
+                    .foregroundStyle(DS.Color.textSecondary)
+                    .padding(.top, 2)
             }
 
             if let plans {
@@ -91,16 +112,16 @@ struct TransferConfirmationSheet: View {
 
                 Button {
                     if isMulti {
-                        Task { await state.confirmTransferAll() }
+                        Task { await state.confirmTransferAll(mode: selectedMode) }
                     } else {
-                        Task { await state.confirmTransfer() }
+                        Task { await state.confirmTransfer(mode: selectedMode) }
                     }
                 } label: {
                     HStack(spacing: DS.Spacing.sm) {
                         if state.isTransferring {
                             ProgressView().controlSize(.small)
                         }
-                        Text(state.isTransferring ? "Copying…" : willReplaceAny ? "Replace & Copy" : "Copy")
+                        Text(state.isTransferring ? (selectedMode == .symlink ? "Linking…" : "Copying…") : willReplaceAny ? (selectedMode == .symlink ? "Replace & Link" : "Replace & Copy") : (selectedMode == .symlink ? "Link Skill" : "Copy Skill"))
                             .font(.system(size: 14, weight: .semibold))
                     }
                     .foregroundStyle(.white)

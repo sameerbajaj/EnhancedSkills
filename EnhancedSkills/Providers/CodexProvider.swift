@@ -43,12 +43,17 @@ struct CodexProvider: SkillProvider {
             let lastMod = attrs?[.modificationDate] as? Date
             let createdDate = (try? fm.attributesOfItem(atPath: url.path))?[.creationDate] as? Date
 
+            let isSymlink = TransferService.isSymlink(at: url)
+            let symlinkTarget = isSymlink ? TransferService.resolvedSymlink(at: url) : nil
+            let isDangling = isSymlink && (symlinkTarget == nil || !fm.fileExists(atPath: symlinkTarget!.path))
+
             var skill = DiscoveredSkill(
                 provider: .codex, folderName: folderName,
                 rootPath: rootPath, skillPath: skillPath, skillMarkdownPath: mdPath,
                 parsedName: nil, parsedDescription: nil,
                 isSystem: isSystem, hasScripts: hasScripts, hasReferences: hasRefs,
-                createdDate: createdDate, lastModified: lastMod, parseStatus: .ok, previewExcerpt: nil
+                createdDate: createdDate, lastModified: lastMod, parseStatus: isDangling ? .missingFile : .ok, previewExcerpt: nil,
+                isSymlink: isSymlink, symlinkTarget: symlinkTarget, isDanglingSymlink: isDangling
             )
             let (fm, body) = SkillParser.parse(skill: &skill)
             skill.contentHash = ContentHasher.sha256(ofString: body)
