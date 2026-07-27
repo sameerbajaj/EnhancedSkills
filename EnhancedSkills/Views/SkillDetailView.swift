@@ -112,12 +112,26 @@ struct DetailContent: View {
                         SkillInlineDates(record: record)
                     }
 
-                    // Provider badges with folder reveal icons
+                    // Provider badges with folder reveal icons and symlink indicators
                     HStack(spacing: DS.Spacing.md) {
                         ForEach(Provider.allCases) { provider in
                             if let skill = record.skills[provider] {
                                 HStack(spacing: DS.Spacing.xs) {
                                     ProviderBadge(provider: provider)
+                                    if skill.isSymlink {
+                                        Image(systemName: "link")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(DS.Color.synced)
+                                            .help("Symlink pointing to \(record.canonicalSource?.skillPath.path ?? "Claude source")")
+                                    } else if record.hasSymlinks && record.canonicalSource?.provider == provider {
+                                        Text("Source")
+                                            .font(.system(size: 9, weight: .semibold))
+                                            .foregroundStyle(DS.Color.accent)
+                                            .padding(.horizontal, 4)
+                                            .padding(.vertical, 1)
+                                            .background(DS.Color.accent.opacity(0.12))
+                                            .clipShape(Capsule())
+                                    }
                                     Button { state.revealInFinder(skill) } label: {
                                         Image(systemName: "folder")
                                             .font(.system(size: 11))
@@ -202,7 +216,9 @@ struct DetailContent: View {
                                     Image(systemName: "link")
                                         .font(.system(size: 11))
                                         .foregroundStyle(DS.Color.synced)
-                                    Text("Linked via Symlink (\(record.symlinkedProviders.map(\.displayName).joined(separator: ", ")))")
+                                    let symlinkedNames = record.symlinkedProviders.map(\.displayName).joined(separator: ", ")
+                                    let sourceName = record.canonicalSource?.provider.displayName ?? "Claude"
+                                    Text("Linked via Symlink (\(symlinkedNames) → \(sourceName))")
                                         .font(.system(size: 11, weight: .medium))
                                         .foregroundStyle(DS.Color.synced)
                                     Spacer()
