@@ -218,9 +218,11 @@ struct DetailContent: View {
                                         .foregroundStyle(DS.Color.synced)
                                     let symlinkedNames = record.symlinkedProviders.map(\.displayName).joined(separator: ", ")
                                     let sourceName = record.canonicalSource?.provider.displayName ?? "Claude"
-                                    Text("Linked via Symlink (\(symlinkedNames) → \(sourceName))")
+                                    let sourcePath = record.canonicalSource?.skillPath.path.replacingOccurrences(of: FileManager.default.homeDirectoryForCurrentUser.path, with: "~") ?? ""
+                                    Text("Linked via Symlink (\(sourceName) (Source) ← \(symlinkedNames))")
                                         .font(.system(size: 11, weight: .medium))
                                         .foregroundStyle(DS.Color.synced)
+                                        .help("\(symlinkedNames) symlink\(record.symlinkedProviders.count > 1 ? "s" : "") directly to canonical source folder in \(sourceName) (\(sourcePath))")
                                     Spacer()
                                     Button("Unlink") {
                                         Task { await state.unlinkSkill(record: record) }
