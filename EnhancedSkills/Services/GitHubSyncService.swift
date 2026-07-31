@@ -61,9 +61,9 @@ struct GitHubSyncService {
         }
         try await runGit(["add", ".gitignore"], at: skillPath)
 
-        // Check if there's anything to commit
-        let statusOutput = try await runGit(["status", "--porcelain"], at: skillPath)
-        if !statusOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        // Check if there are staged changes to commit
+        let stagedFiles = try await runGit(["diff", "--cached", "--name-only"], at: skillPath)
+        if !stagedFiles.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             try await runGit(["commit", "-m", "Initial publish via EnhancedSkills"], at: skillPath)
         }
 
@@ -136,13 +136,11 @@ struct GitHubSyncService {
         }
 
         // Only commit if there are staged changes
-        let statusOutput = try await runGit(["status", "--porcelain"], at: skillPath)
-        guard !statusOutput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            return origin
+        let stagedFiles = try await runGit(["diff", "--cached", "--name-only"], at: skillPath)
+        if !stagedFiles.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            let commitMsg = "Update via EnhancedSkills"
+            try await runGit(["commit", "-m", commitMsg], at: skillPath)
         }
-
-        let commitMsg = "Update via EnhancedSkills"
-        try await runGit(["commit", "-m", commitMsg], at: skillPath)
         try await runGit(["push", "origin", origin.branch], at: skillPath)
 
         let sha = (try? await runGit(["rev-parse", "HEAD"], at: skillPath))?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -297,7 +295,10 @@ struct GitHubSyncService {
             if fm.fileExists(atPath: skillPath.appendingPathComponent("scripts").path) {
                 try? await runGit(["add", "scripts/"], at: skillPath)
             }
-            try await runGit(["commit", "-m", "Import via EnhancedSkills"], at: skillPath)
+            let stagedFiles = try await runGit(["diff", "--cached", "--name-only"], at: skillPath)
+            if !stagedFiles.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                try await runGit(["commit", "-m", "Import via EnhancedSkills"], at: skillPath)
+            }
 
             // Add remote
             try await runGit(["remote", "add", "origin", remoteURL], at: skillPath)
@@ -339,8 +340,17 @@ struct GitHubSyncService {
                     let outData = stdout.fileHandleForReading.readDataToEndOfFile()
                     let errData = stderr.fileHandleForReading.readDataToEndOfFile()
                     if process.terminationStatus != 0 {
-                        let errStr = String(data: errData, encoding: .utf8) ?? ""
-                        continuation.resume(throwing: GitHubSyncError.gitError(errStr.trimmingCharacters(in: .whitespacesAndNewlines)))
+                        let errStr = (String(data: errData, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                        let outStr = (String(data: outData, encoding: .utf8) ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                        let message: String
+                        if !errStr.isEmpty {
+                            message = errStr
+                        } else if !outStr.isEmpty {
+                            message = outStr
+                        } else {
+                            message = "Git command failed with exit code \(process.terminationStatus)"
+                        }
+                        continuation.resume(throwing: GitHubSyncError.gitError(message))
                     } else {
                         let output = String(data: outData, encoding: .utf8) ?? ""
                         continuation.resume(returning: output)
