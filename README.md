@@ -98,3 +98,9 @@ open EnhancedSkills.xcodeproj
 Select the **EnhancedSkills** scheme and press **⌘R** to build and run.
 
 No external dependencies — the project uses only built-in Apple frameworks.
+
+---
+
+## License
+
+[MIT](LICENSE) © 2026 Sameer Bajaj
