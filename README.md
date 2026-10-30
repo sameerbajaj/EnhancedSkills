@@ -4,6 +4,8 @@
 
 ![macOS](https://img.shields.io/badge/macOS-14%2B-blue?logo=apple) ![Swift](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift) ![License](https://img.shields.io/github/license/sameerbajaj/EnhancedSkills)
 
+🔗 **Landing Page**: [sameerbajaj.com/tools/enhanced-skills](https://sameerbajaj.com/tools/enhanced-skills)
+
 ![EnhancedSkills](assets/screenshot.png)
 
 ---
@@ -101,6 +103,10 @@ No external dependencies — the project uses only built-in Apple frameworks.
 
 ---
 
+## Author
+
+Created by [Sameer Bajaj](https://sameerbajaj.com).
+
 ## License
 
-[MIT](LICENSE) © 2026 Sameer Bajaj
+[MIT](LICENSE) © 2026 [Sameer Bajaj](https://sameerbajaj.com)
