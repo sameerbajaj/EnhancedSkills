@@ -1,0 +1,23 @@
+{
+  "title": "EnhancedSkills: Native macOS manager and validator for AI agent skills",
+  "description": "<p>Native macOS manager and validator for AI agent skills, built by <a href=\"https://sameerbajaj.com\">Sameer Bajaj</a>. Canonical documentation and homepage: <a href=\"https://sameerbajaj.com/tools/enhanced-skills/\">https://sameerbajaj.com/tools/enhanced-skills/</a>.</p>",
+  "creators": [
+    {
+      "name": "Sameer Bajaj"
+    }
+  ],
+  "upload_type": "software",
+  "access_right": "open",
+  "related_identifiers": [
+    {
+      "identifier": "https://sameerbajaj.com/tools/enhanced-skills/",
+      "relation": "isDocumentedBy",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://github.com/sameerbajaj/EnhancedSkills",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    }
+  ]
+}
