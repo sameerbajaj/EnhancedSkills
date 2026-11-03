@@ -2,6 +2,8 @@
 
 **A native macOS skill manager with AI-powered evaluation, provider-specific validation, and one-click fixes.**
 
+> **Canonical Page & Documentation**: [sameerbajaj.com/tools/enhanced-skills](https://sameerbajaj.com/tools/enhanced-skills/)
+
 ![macOS](https://img.shields.io/badge/macOS-14%2B-blue?logo=apple) ![Swift](https://img.shields.io/badge/Swift-SwiftUI-orange?logo=swift) ![License](https://img.shields.io/github/license/sameerbajaj/EnhancedSkills)
 
 🔗 **Landing Page**: [sameerbajaj.com/tools/enhanced-skills](https://sameerbajaj.com/tools/enhanced-skills)
